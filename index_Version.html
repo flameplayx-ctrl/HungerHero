@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Innovative Food Donation Finder UAE</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+<style>
+  body { font-family: Arial, sans-serif; margin:0; background:#eef2f5; }
+  header { background: linear-gradient(90deg,#ff6f61,#ff9472); color:white; text-align:center; padding:25px 0; font-size:26px; font-weight:bold; }
+  .container { max-width: 950px; margin:20px auto; padding:25px; background:white; border-radius:14px; box-shadow:0 6px 20px rgba(0,0,0,0.1);}
+  input, select, button { padding:12px; margin:6px 0; font-size:16px; border-radius:6px; border:1px solid #ccc; }
+  button { background: linear-gradient(90deg,#ff6f61,#ff9472); color:white; border:none; cursor:pointer; font-weight:bold; transition:0.3s; }
+  button:hover { background: linear-gradient(90deg,#e65b50,#ff6f61); }
+  .card { background:#fff3f0; padding:18px; margin:14px 0; border-radius:12px; box-shadow:0 4px 12px rgba(0,0,0,0.1); transition:0.3s; }
+  .card:hover { transform: translateY(-5px); box-shadow:0 6px 18px rgba(0,0,0,0.2); }
+  .card h3 { margin:0; color:#d84315; font-size:18px; }
+  .card p { margin:5px 0; color:#333; }
+  .points { background:#dff0d8; padding:14px; border-radius:10px; margin-bottom:15px; color:#3c763d; font-weight:bold; font-size:16px;}
+  #map { height:450px; border-radius:14px; margin-top:20px; }
+  .badge { display:inline-block; padding:6px 10px; border-radius:8px; margin-left:10px; background:#ffda79; color:#6a4c00; font-weight:bold; font-size:14px; }
+  .progress-container { background:#ddd; border-radius:12px; overflow:hidden; margin:12px 0; }
+  .progress-bar { height:20px; background:#ff6f61; width:0%; text-align:center; color:white; line-height:20px; font-weight:bold; transition:width 0.5s; }
+</style>
+</head>
+<body>
+<header>Innovative Food Donation Finder UAE</header>
+<div class="container">
+  <div class="points">Your Points: <span id="points">0</span> <span id="badge"></span></div>
+  <div class="progress-container">
+    <div id="progress" class="progress-bar">0 Meals Saved</div>
+  </div>
+  <input type="text" id="city" placeholder="Enter your city">
+  <select id="foodType">
+    <option value="">All Food Types</option>
+    <option value="Canned">Canned</option>
+    <option value="Cooked">Cooked</option>
+    <option value="Packaged">Packaged</option>
+  </select>
+  <button onclick="filterRequests()">Search</button>
+
+  <div id="requests"></div>
+  <div id="map"></div>
+</div>
+
+<script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+<script>
+let points = 0;
+let mealsSaved = 0;
+const pointsSpan = document.getElementById('points');
+const badgeSpan = document.getElementById('badge');
+const progressBar = document.getElementById('progress');
+
+const requests = [
+  // Abu Dhabi
+  {city:"Abu Dhabi", name:"Food Bank Abu Dhabi", food:"Canned", address:"Corniche Rd", lat:24.466, lon:54.366},
+  {city:"Abu Dhabi", name:"Abu Dhabi Charity Center", food:"Cooked", address:"Al Khalidiya", lat:24.493, lon:54.368},
+  {city:"Abu Dhabi", name:"Hope Center Abu Dhabi", food:"Packaged", address:"Mussafah", lat:24.421, lon:54.456},
+  // Dubai
+  {city:"Dubai", name:"Helping Hands Dubai", food:"Cooked", address:"Al Barsha 1", lat:25.116, lon:55.200},
+  {city:"Dubai", name:"Share the Love Dubai", food:"Packaged", address:"Downtown Dubai", lat:25.204, lon:55.270},
+  {city:"Dubai", name:"Dubai Food Relief", food:"Canned", address:"Deira", lat:25.265, lon:55.297},
+  // Sharjah
+  {city:"Sharjah", name:"Care4U Sharjah", food:"Packaged", address:"Al Majaz", lat:25.340, lon:55.420},
+  {city:"Sharjah", name:"Sharjah Food Bank", food:"Cooked", address:"Industrial Area", lat:25.329, lon:55.433},
+  // Ajman
+  {city:"Ajman", name:"Ajman Charity Center", food:"Canned", address:"Ajman Corniche", lat:25.405, lon:55.513},
+  {city:"Ajman", name:"Ajman Helping Hands", food:"Packaged", address:"Al Jurf", lat:25.417, lon:55.516},
+  // Umm Al Quwain
+  {city:"Umm Al Quwain", name:"UAQ Food Relief", food:"Cooked", address:"UAQ Main St", lat:25.566, lon:55.556},
+  {city:"Umm Al Quwain", name:"UAQ Charity Center", food:"Canned", address:"Al Raas", lat:25.574, lon:55.555},
+  // Ras Al Khaimah
+  {city:"Ras Al Khaimah", name:"RAK Food Aid", food:"Packaged", address:"RAK City Center", lat:25.789, lon:55.943},
+  {city:"Ras Al Khaimah", name:"RAK Charity Hub", food:"Cooked", address:"Al Nakheel", lat:25.800, lon:55.950},
+  // Fujairah
+  {city:"Fujairah", name:"Fujairah Helping Hands", food:"Canned", address:"Fujairah Port", lat:25.128, lon:56.326},
+  {city:"Fujairah", name:"Fujairah Food Relief", food:"Packaged", address:"Central Market", lat:25.128, lon:56.331}
+];
+
+const resultsDiv = document.getElementById('requests');
+
+// Initialize map
+const map = L.map('map').setView([25.276987, 55.296249], 9);
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+  attribution:'&copy; <a href="https://openstreetmap.org">OpenStreetMap</a> contributors'
+}).addTo(map);
+
+// Map markers
+let markers = [];
+function updateMap(list){
+  markers.forEach(m => map.removeLayer(m));
+  markers = [];
+  list.forEach(r => {
+    const marker = L.marker([r.lat, r.lon]).addTo(map)
+      .bindPopup(`<b>${r.name}</b><br>City: ${r.city}<br>Food: ${r.food}<br>${r.address}`);
+    markers.push(marker);
+  });
+  if(list.length>0) map.setView([list[0].lat, list[0].lon],10);
+}
+
+// Filter & display
+function filterRequests(){
+  const city = document.getElementById('city').value.toLowerCase();
+  const foodType = document.getElementById('foodType').value;
+
+  resultsDiv.innerHTML = '';
+  const filtered = requests.filter(r =>
+    (r.city.toLowerCase().includes(city) || city==="") &&
+    (r.food===foodType || foodType==="")
+  );
+
+  if(filtered.length===0){
+    resultsDiv.innerHTML='<p>No requests found.</p>';
+  } else {
+    filtered.forEach(r => {
+      const card = document.createElement('div');
+      card.className='card';
+      card.innerHTML = `<h3>${r.name}</h3>
+                        <p>City: ${r.city}</p>
+                        <p>Food Type: ${r.food}</p>
+                        <p>Address: ${r.address}</p>
+                        <button>Donate</button>`;
+      resultsDiv.appendChild(card);
+
+      // Add donate click
+      card.querySelector('button').addEventListener('click', ()=> donate(r.name, card));
+    });
+  }
+
+  updateMap(filtered);
+}
+
+// Donate function with card removal and animation
+function donate(name, cardElement){
+  points += 10;
+  mealsSaved += 1;
+  pointsSpan.innerText = points;
+
+  // Progress bar
+  progressBar.style.width = Math.min(mealsSaved*5,100)+'%';
+  progressBar.innerText = mealsSaved + ' Meals Saved';
+
+  // Badge update
+  if(points>=200) badgeSpan.innerText = '🏅 Gold Badge';
+  else if(points>=100) badgeSpan.innerText = '🥈 Silver Badge';
+  else if(points>=50) badgeSpan.innerText = '🥉 Bronze Badge';
+  else badgeSpan.innerText = '';
+
+  // Remove card with fade
+  if(cardElement){
+    cardElement.style.transition = '0.5s';
+    cardElement.style.opacity = 0;
+    setTimeout(()=> cardElement.remove(), 500);
+  }
+
+  // Confirmation popup
+  const confirm = document.createElement('div');
+  confirm.innerText = `✅ Donation to ${name} completed!`;
+  confirm.style.position = 'fixed';
+  confirm.style.top = '20px';
+  confirm.style.right = '20px';
+  confirm.style.background = '#4caf50';
+  confirm.style.color = 'white';
+  confirm.style.padding = '12px 18px';
+  confirm.style.borderRadius = '8px';
+  confirm.style.boxShadow = '0 4px 10px rgba(0,0,0,0.2)';
+  confirm.style.zIndex = 1000;
+  document.body.appendChild(confirm);
+  setTimeout(()=> confirm.remove(), 2000);
+}
+
+// Show all requests by default
+updateMap(requests);
+filterRequests();
+</script>
+</body>
+</html>
