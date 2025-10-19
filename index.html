@@ -8,8 +8,8 @@
   <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@700;400&display=swap" rel="stylesheet">
   <style>
     :root {
-      --main: #FF6F61;
-      --accent: #FFD166;
+      --main: #2ecc40; /* Modern green */
+      --accent: #b1e693; /* Light green accent */
       --bg: #F7F7F9;
       --dark: #222831;
       --text: #393e46;
@@ -140,9 +140,21 @@
       line-height: 1.7;
       margin-bottom: 2rem;
     }
+    /* Improved donate-section alignment */
     .donate-section {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
       text-align: center;
       margin: 2rem 0;
+    }
+    .donate-section .section-title {
+      margin-bottom: 1rem;
+    }
+    .donate-section p {
+      max-width: 600px;
+      margin: 0 auto 1.5rem auto;
+      font-size: 1.1rem;
     }
     .donate-section .donate-btn {
       background: var(--main);
@@ -155,6 +167,8 @@
       cursor: pointer;
       transition: background 0.2s;
       box-shadow: 0 6px 16px -8px var(--main);
+      margin-top: 0.5rem;
+      margin-bottom: 0.5rem;
     }
     .donate-section .donate-btn:hover {
       background: var(--accent);
