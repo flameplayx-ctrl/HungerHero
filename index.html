@@ -1,177 +1,496 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Innovative Food Donation Finder UAE</title>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Food Donation Finder — Pickup Request Demo</title>
 <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
 <style>
-  body { font-family: Arial, sans-serif; margin:0; background:#eef2f5; }
-  header { background: linear-gradient(90deg,#ff6f61,#ff9472); color:white; text-align:center; padding:25px 0; font-size:26px; font-weight:bold; }
-  .container { max-width: 950px; margin:20px auto; padding:25px; background:white; border-radius:14px; box-shadow:0 6px 20px rgba(0,0,0,0.1);}
-  input, select, button { padding:12px; margin:6px 0; font-size:16px; border-radius:6px; border:1px solid #ccc; }
-  button { background: linear-gradient(90deg,#ff6f61,#ff9472); color:white; border:none; cursor:pointer; font-weight:bold; transition:0.3s; }
-  button:hover { background: linear-gradient(90deg,#e65b50,#ff6f61); }
-  .card { background:#fff3f0; padding:18px; margin:14px 0; border-radius:12px; box-shadow:0 4px 12px rgba(0,0,0,0.1); transition:0.3s; }
-  .card:hover { transform: translateY(-5px); box-shadow:0 6px 18px rgba(0,0,0,0.2); }
-  .card h3 { margin:0; color:#d84315; font-size:18px; }
-  .card p { margin:5px 0; color:#333; }
-  .points { background:#dff0d8; padding:14px; border-radius:10px; margin-bottom:15px; color:#3c763d; font-weight:bold; font-size:16px;}
-  #map { height:450px; border-radius:14px; margin-top:20px; }
-  .badge { display:inline-block; padding:6px 10px; border-radius:8px; margin-left:10px; background:#ffda79; color:#6a4c00; font-weight:bold; font-size:14px; }
-  .progress-container { background:#ddd; border-radius:12px; overflow:hidden; margin:12px 0; }
-  .progress-bar { height:20px; background:#ff6f61; width:0%; text-align:center; color:white; line-height:20px; font-weight:bold; transition:width 0.5s; }
+  :root{--accent1:#ff6f61;--accent2:#ff9472;--bg:#eef2f5;--muted:#666;}
+  body{margin:0;font-family:Arial,Helvetica,sans-serif;background:var(--bg);color:#222}
+  header{background:linear-gradient(90deg,var(--accent1),var(--accent2));color:#fff;padding:14px 18px;display:flex;align-items:center;justify-content:space-between;gap:12px}
+  .brand{font-weight:800;font-size:18px}
+  nav a{color:rgba(255,255,255,0.95);text-decoration:none;margin-left:12px;font-weight:600;cursor:pointer}
+  nav a:hover{opacity:0.95;text-decoration:underline}
+  .container{max-width:1050px;margin:22px auto;padding:20px;background:#fff;border-radius:12px;box-shadow:0 8px 30px rgba(0,0,0,.08)}
+  section{display:none;padding:6px 10px}
+  section.active{display:block}
+  .hero{display:grid;grid-template-columns:1fr 420px;gap:20px;align-items:center}
+  .hero h1{margin:0 0 8px;font-size:28px;color:#d84315}
+  .cta{display:inline-block;padding:12px 16px;border-radius:10px;background:linear-gradient(90deg,var(--accent1),var(--accent2));color:#fff;font-weight:700;border:none;cursor:pointer}
+  .small-card{background:#fff3f0;padding:12px;border-radius:10px;box-shadow:0 6px 18px rgba(0,0,0,.04)}
+  .controls{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+  input,select,button,textarea{padding:10px;border-radius:8px;border:1px solid #ccc;font-size:15px}
+  button.primary{background:linear-gradient(90deg,var(--accent1),var(--accent2));color:#fff;border:none;cursor:pointer;font-weight:700}
+  #map{height:420px;border-radius:12px;margin-top:14px}
+  .card{background:#fff3f0;padding:14px;margin:12px 0;border-radius:12px;box-shadow:0 4px 12px rgba(0,0,0,.06)}
+  .row{display:flex;gap:12px;flex-wrap:wrap}
+  .col{flex:1}
+  .sidebar{min-width:260px}
+  .progress-container{background:#eee;border-radius:12px;overflow:hidden;margin:12px 0}
+  .progress-bar{height:20px;background:var(--accent1);width:0%;text-align:center;color:#fff;line-height:20px;font-weight:700;transition:width .4s}
+  footer{color:var(--muted);text-align:center;padding:18px 0;font-size:14px}
+  @media (max-width:900px){
+    .hero{grid-template-columns:1fr}
+    .hero .small-card{order:-1}
+    nav{display:none}
+    header{flex-direction:column;align-items:flex-start;gap:8px}
+  }
+
+  /* Modal styles */
+  .modal-backdrop{position:fixed;inset:0;background:rgba(0,0,0,0.45);display:none;align-items:center;justify-content:center;z-index:9998}
+  .modal{background:#fff;border-radius:12px;padding:18px;max-width:520px;width:100%;box-shadow:0 8px 30px rgba(0,0,0,.25)}
+  .modal h3{margin:0 0 8px}
+  .modal .row{display:block}
+  .modal .field{margin-bottom:10px}
+  .modal .actions{text-align:right;margin-top:10px}
+  .btn-ghost{background:transparent;border:1px solid #ccc;padding:10px 12px;border-radius:8px;cursor:pointer}
+  .loading{opacity:.6;pointer-events:none}
 </style>
 </head>
 <body>
-<header>Innovative Food Donation Finder UAE</header>
-<div class="container">
-  <div class="points">Your Points: <span id="points">0</span> <span id="badge"></span></div>
-  <div class="progress-container">
-    <div id="progress" class="progress-bar">0 Meals Saved</div>
-  </div>
-  <input type="text" id="city" placeholder="Enter your city">
-  <select id="foodType">
-    <option value="">All Food Types</option>
-    <option value="Canned">Canned</option>
-    <option value="Cooked">Cooked</option>
-    <option value="Packaged">Packaged</option>
-  </select>
-  <button onclick="filterRequests()">Search</button>
 
-  <div id="requests"></div>
-  <div id="map"></div>
+<header>
+  <div class="brand">Innovative Food Donation Finder UAE</div>
+  <nav>
+    <a data-target="home">Home</a>
+    <a data-target="finder">Finder</a>
+    <a data-target="register">NGO Register</a>
+    <a data-target="volunteers">Volunteers</a>
+    <a data-target="leaderboard">Leaderboard</a>
+    <a data-target="about">About</a>
+    <a data-target="contact">Contact</a>
+  </nav>
+</header>
+
+<div class="container">
+  <!-- HOME -->
+  <section id="home" class="active">
+    <div class="hero">
+      <div>
+        <h1>Find & donate food across all seven emirates</h1>
+        <p>Help reduce food waste and feed people in need. Search by city, food type or find nearby NGOs on an interactive map.</p>
+        <button class="cta" id="goFinder">Start Donating — Find a Food Bank</button>
+
+        <div style="margin-top:16px" class="row">
+          <div class="small-card col">
+            <strong>How it works</strong>
+            <p style="margin:6px 0;color:var(--muted)">Search → Select an NGO → Tap Donate → Fill pickup form → Confirmation sent to NGO.</p>
+          </div>
+          <div class="small-card col">
+            <strong>Impact</strong>
+            <div style="margin-top:8px" class="progress-container"><div id="homeProgress" class="progress-bar">0 Meals Saved</div></div>
+            <div style="margin-top:8px;color:var(--muted)">Your Points: <span id="homePoints">0</span> <span id="homeBadge"></span></div>
+          </div>
+        </div>
+      </div>
+
+      <div>
+        <div class="card">
+          <strong>Quick Search</strong>
+          <div style="margin-top:8px" class="controls">
+            <input id="homeCity" placeholder="City (e.g. Dubai)">
+            <select id="homeFoodType">
+              <option value="">All Food Types</option>
+              <option value="Canned">Canned</option>
+              <option value="Cooked">Cooked</option>
+              <option value="Packaged">Packaged</option>
+            </select>
+            <button class="primary" id="homeSearch">Search</button>
+          </div>
+          <p style="margin:8px 0;color:var(--muted)">Tip: Use the map for exact pickup locations and directions.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- FINDER (map + results) -->
+  <section id="finder">
+    <div class="row">
+      <div class="col">
+        <div class="card">
+          <strong>Find donation centers</strong>
+          <div class="controls" style="margin-top:10px">
+            <input type="text" id="city" placeholder="Enter your city">
+            <select id="foodType">
+              <option value="">All Food Types</option>
+              <option value="Canned">Canned</option>
+              <option value="Cooked">Cooked</option>
+              <option value="Packaged">Packaged</option>
+            </select>
+            <button class="primary" id="searchBtn">Search</button>
+          </div>
+          <div id="requests"></div>
+        </div>
+
+        <div id="map" class="card"></div>
+      </div>
+
+      <div class="sidebar col">
+        <div class="card">
+          <strong>Points & Badges</strong>
+          <div style="margin-top:8px">Points: <span id="points">0</span></div>
+          <div style="margin-top:8px" id="badge"></div>
+          <div class="progress-container" style="margin-top:10px">
+            <div id="progress" class="progress-bar">0 Meals Saved</div>
+          </div>
+        </div>
+
+        <div class="card">
+          <strong>Donate responsibly</strong>
+          <p style="color:var(--muted);margin:6px 0">Label items, keep cooked food in insulated containers and coordinate pickup times with NGOs.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- rest omitted for brevity in displayed content (kept full in file) -->
+  <!-- NGO registration -->
+  <section id="register">
+    <div class="card">
+      <h3>NGO / Food Bank Registration</h3>
+      <p style="color:var(--muted)">Register so donors can find you on the map.</p>
+      <div style="margin-top:10px">
+        <input id="ngoName" placeholder="Organization name" style="width:100%;margin-bottom:8px">
+        <input id="ngoCity" placeholder="City" style="width:100%;margin-bottom:8px">
+        <input id="ngoAddress" placeholder="Address" style="width:100%;margin-bottom:8px">
+        <input id="ngoContact" placeholder="Contact number or email" style="width:100%;margin-bottom:8px">
+        <select id="ngoFoodType" style="width:100%;margin-bottom:8px">
+          <option value="">Accepted food types</option>
+          <option value="Canned">Canned</option>
+          <option value="Cooked">Cooked</option>
+          <option value="Packaged">Packaged</option>
+        </select>
+        <button class="primary" id="registerBtn">Register NGO</button>
+        <p id="ngoMsg" style="color:green;margin-top:8px"></p>
+      </div>
+    </div>
+  </section>
+
+  <!-- Volunteers -->
+  <section id="volunteers">
+    <div class="card">
+      <h3>Volunteer Sign-up</h3>
+      <p style="color:var(--muted)">Help with pickups, sorting and delivery.</p>
+      <input id="volName" placeholder="Your name" style="width:100%;margin-bottom:8px">
+      <input id="volCity" placeholder="City" style="width:100%;margin-bottom:8px">
+      <input id="volContact" placeholder="Contact" style="width:100%;margin-bottom:8px">
+      <button class="primary" id="volSignBtn">Sign up</button>
+      <p id="volMsg" style="color:green;margin-top:8px"></p>
+    </div>
+  </section>
+
+  <!-- Leaderboard -->
+  <section id="leaderboard">
+    <div class="card">
+      <h3>Leaderboard</h3>
+      <p style="color:var(--muted)">Top donors (placeholder). Integrate with user accounts to make this live.</p>
+      <ol id="leaderList">
+        <li>Ahmed — 120 pts</li>
+        <li>Fatima — 95 pts</li>
+        <li>Team Hope — 80 pts</li>
+      </ol>
+    </div>
+  </section>
+
+  <!-- About -->
+  <section id="about">
+    <div class="card">
+      <h3>About</h3>
+      <p style="color:var(--muted)">This prototype helps UAE residents locate nearby food donation centers and get rewarded for donations. Built to be community-first and privacy-friendly.</p>
+    </div>
+  </section>
+
+  <!-- Contact -->
+  <section id="contact">
+    <div class="card">
+      <h3>Contact</h3>
+      <p style="color:var(--muted)">Questions or partnerships? Send a message below.</p>
+      <input id="contactName" placeholder="Your name" style="width:100%;margin-bottom:8px">
+      <input id="contactEmail" placeholder="Email" style="width:100%;margin-bottom:8px">
+      <textarea id="contactMessage" placeholder="Message" rows="4" style="width:100%"></textarea>
+      <button class="primary" id="contactSendBtn">Send</button>
+      <p id="contactMsg" style="color:green;margin-top:8px"></p>
+    </div>
+  </section>
+
 </div>
+
+<!-- Pickup Modal (hidden by default) -->
+<div id="pickupBackdrop" class="modal-backdrop" role="dialog" aria-hidden="true">
+  <div class="modal" role="document" aria-labelledby="pickupTitle">
+    <h3 id="pickupTitle">Request pickup — <span id="pickupNgoName"></span></h3>
+    <div class="row">
+      <div class="field"><input id="donorName" placeholder="Your name" style="width:100%"></div>
+      <div class="field"><input id="donorPhone" placeholder="Phone or WhatsApp (include +971...)" style="width:100%"></div>
+      <div class="field"><input id="pickupDate" type="date" style="width:100%"></div>
+      <div class="field"><input id="pickupTime" type="time" style="width:100%"></div>
+      <div class="field"><input id="pickupQty" placeholder="Quantity (boxes / meals / kg)" style="width:100%"></div>
+      <div class="field"><textarea id="pickupNotes" placeholder="Notes (e.g. dietary info, container sizes, pickup instructions)" rows="3" style="width:100%"></textarea></div>
+    </div>
+    <div class="actions">
+      <button class="btn-ghost" id="pickupCancel">Cancel</button>
+      <button class="primary" id="pickupSubmit">Send Pickup Request</button>
+    </div>
+    <div id="pickupMsg" style="margin-top:8px;color:green"></div>
+  </div>
+</div>
+
+<footer>Made for UAE communities • Prototype (demo)</footer>
 
 <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
 <script>
-let points = 0;
-let mealsSaved = 0;
-const pointsSpan = document.getElementById('points');
-const badgeSpan = document.getElementById('badge');
-const progressBar = document.getElementById('progress');
+/* ================== CONFIG - set these before using ================== */
+const GOOGLE_SCRIPT_WEBAPP_URL = "GOOGLE_SCRIPT_WEBAPP_URL_HERE"; // <- paste your Apps Script URL here
+const API_TOKEN = "YOUR_SECRET_TOKEN_HERE"; // <- set a secret token and use the same in Apps Script
+/* ================================================================== */
 
-const requests = [
-  // Abu Dhabi
-  {city:"Abu Dhabi", name:"Food Bank Abu Dhabi", food:"Canned", address:"Corniche Rd", lat:24.466, lon:54.366},
-  {city:"Abu Dhabi", name:"Abu Dhabi Charity Center", food:"Cooked", address:"Al Khalidiya", lat:24.493, lon:54.368},
-  {city:"Abu Dhabi", name:"Hope Center Abu Dhabi", food:"Packaged", address:"Mussafah", lat:24.421, lon:54.456},
-  // Dubai
-  {city:"Dubai", name:"Helping Hands Dubai", food:"Cooked", address:"Al Barsha 1", lat:25.116, lon:55.200},
-  {city:"Dubai", name:"Share the Love Dubai", food:"Packaged", address:"Downtown Dubai", lat:25.204, lon:55.270},
-  {city:"Dubai", name:"Dubai Food Relief", food:"Canned", address:"Deira", lat:25.265, lon:55.297},
-  // Sharjah
-  {city:"Sharjah", name:"Care4U Sharjah", food:"Packaged", address:"Al Majaz", lat:25.340, lon:55.420},
-  {city:"Sharjah", name:"Sharjah Food Bank", food:"Cooked", address:"Industrial Area", lat:25.329, lon:55.433},
-  // Ajman
-  {city:"Ajman", name:"Ajman Charity Center", food:"Canned", address:"Ajman Corniche", lat:25.405, lon:55.513},
-  {city:"Ajman", name:"Ajman Helping Hands", food:"Packaged", address:"Al Jurf", lat:25.417, lon:55.516},
-  // Umm Al Quwain
-  {city:"Umm Al Quwain", name:"UAQ Food Relief", food:"Cooked", address:"UAQ Main St", lat:25.566, lon:55.556},
-  {city:"Umm Al Quwain", name:"UAQ Charity Center", food:"Canned", address:"Al Raas", lat:25.574, lon:55.555},
-  // Ras Al Khaimah
-  {city:"Ras Al Khaimah", name:"RAK Food Aid", food:"Packaged", address:"RAK City Center", lat:25.789, lon:55.943},
-  {city:"Ras Al Khaimah", name:"RAK Charity Hub", food:"Cooked", address:"Al Nakheel", lat:25.800, lon:55.950},
-  // Fujairah
-  {city:"Fujairah", name:"Fujairah Helping Hands", food:"Canned", address:"Fujairah Port", lat:25.128, lon:56.326},
-  {city:"Fujairah", name:"Fujairah Food Relief", food:"Packaged", address:"Central Market", lat:25.128, lon:56.331}
-];
+document.addEventListener('DOMContentLoaded', function () {
+  /* ========= demo data (kept) ========= */
+  const requests = [
+    {city:"Abu Dhabi", name:"Food Bank Abu Dhabi", food:"Canned", address:"Corniche Rd", lat:24.466, lon:54.366},
+    {city:"Abu Dhabi", name:"Abu Dhabi Charity Center", food:"Cooked", address:"Al Khalidiya", lat:24.493, lon:54.368},
+    {city:"Dubai", name:"Helping Hands Dubai", food:"Cooked", address:"Al Barsha 1", lat:25.116, lon:55.200},
+    {city:"Dubai", name:"Share the Love Dubai", food:"Packaged", address:"Downtown Dubai", lat:25.204, lon:55.270},
+    {city:"Sharjah", name:"Care4U Sharjah", food:"Packaged", address:"Al Majaz", lat:25.340, lon:55.420},
+    {city:"Ajman", name:"Ajman Charity Center", food:"Canned", address:"Ajman Corniche", lat:25.405, lon:55.513},
+    {city:"Umm Al Quwain", name:"UAQ Food Relief", food:"Cooked", address:"UAQ Main St", lat:25.566, lon:55.556},
+    {city:"Ras Al Khaimah", name:"RAK Food Aid", food:"Packaged", address:"RAK City Center", lat:25.789, lon:55.943},
+    {city:"Fujairah", name:"Fujairah Helping Hands", food:"Canned", address:"Fujairah Port", lat:25.128, lon:56.326}
+  ];
 
-const resultsDiv = document.getElementById('requests');
+  /* ======= state ======= */
+  let points = 0;
+  let mealsSaved = 0;
+  const pointsSpan = document.getElementById('points');
+  const badgeSpan = document.getElementById('badge');
+  const progressBar = document.getElementById('progress');
+  const homePoints = document.getElementById('homePoints');
+  const homeBadge = document.getElementById('homeBadge');
+  const homeProgress = document.getElementById('homeProgress');
+  const resultsDiv = document.getElementById('requests');
 
-// Initialize map
-const map = L.map('map').setView([25.276987, 55.296249], 9);
-L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-  attribution:'&copy; <a href="https://openstreetmap.org">OpenStreetMap</a> contributors'
-}).addTo(map);
-
-// Map markers
-let markers = [];
-function updateMap(list){
-  markers.forEach(m => map.removeLayer(m));
-  markers = [];
-  list.forEach(r => {
-    const marker = L.marker([r.lat, r.lon]).addTo(map)
-      .bindPopup(`<b>${r.name}</b><br>City: ${r.city}<br>Food: ${r.food}<br>${r.address}`);
-    markers.push(marker);
-  });
-  if(list.length>0) map.setView([list[0].lat, list[0].lon],10);
-}
-
-// Filter & display
-function filterRequests(){
-  const city = document.getElementById('city').value.toLowerCase();
-  const foodType = document.getElementById('foodType').value;
-
-  resultsDiv.innerHTML = '';
-  const filtered = requests.filter(r =>
-    (r.city.toLowerCase().includes(city) || city==="") &&
-    (r.food===foodType || foodType==="")
-  );
-
-  if(filtered.length===0){
-    resultsDiv.innerHTML='<p>No requests found.</p>';
-  } else {
-    filtered.forEach(r => {
-      const card = document.createElement('div');
-      card.className='card';
-      card.innerHTML = `<h3>${r.name}</h3>
-                        <p>City: ${r.city}</p>
-                        <p>Food Type: ${r.food}</p>
-                        <p>Address: ${r.address}</p>
-                        <button>Donate</button>`;
-      resultsDiv.appendChild(card);
-
-      // Add donate click
-      card.querySelector('button').addEventListener('click', ()=> donate(r.name, card));
+  /* ========= map init ========= */
+  const map = L.map('map').setView([25.276987, 55.296249], 9);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution:'&copy; OpenStreetMap contributors'
+  }).addTo(map);
+  let markers = [];
+  function updateMap(list){
+    markers.forEach(m=> map.removeLayer(m));
+    markers = [];
+    list.forEach(r=>{
+      const marker = L.marker([r.lat, r.lon]).addTo(map)
+        .bindPopup(`<b>${escapeHtml(r.name)}</b><br>City: ${escapeHtml(r.city)}<br>Food: ${escapeHtml(r.food)}<br>${escapeHtml(r.address)}`);
+      markers.push(marker);
     });
+    if(list.length>0) map.setView([list[0].lat, list[0].lon],10);
   }
 
-  updateMap(filtered);
-}
-
-// Donate function with card removal and animation
-function donate(name, cardElement){
-  points += 10;
-  mealsSaved += 1;
-  pointsSpan.innerText = points;
-
-  // Progress bar
-  progressBar.style.width = Math.min(mealsSaved*5,100)+'%';
-  progressBar.innerText = mealsSaved + ' Meals Saved';
-
-  // Badge update
-  if(points>=200) badgeSpan.innerText = '🏅 Gold Badge';
-  else if(points>=100) badgeSpan.innerText = '🥈 Silver Badge';
-  else if(points>=50) badgeSpan.innerText = '🥉 Bronze Badge';
-  else badgeSpan.innerText = '';
-
-  // Remove card with fade
-  if(cardElement){
-    cardElement.style.transition = '0.5s';
-    cardElement.style.opacity = 0;
-    setTimeout(()=> cardElement.remove(), 500);
+  /* ========= display & filter logic ========= */
+  function createResultCard(r){
+    const card = document.createElement('div');
+    card.className = 'card';
+    card.innerHTML = `<h3 style="margin:0">${escapeHtml(r.name)}</h3>
+                      <p style="margin:6px 0;color:var(--muted)">City: ${escapeHtml(r.city)} • Food: ${escapeHtml(r.food)}</p>
+                      <p style="margin:6px 0">${escapeHtml(r.address)}</p>
+                      <button class="primary donateBtn">Donate</button>`;
+    return card;
   }
 
-  // Confirmation popup
-  const confirm = document.createElement('div');
-  confirm.innerText = `✅ Donation to ${name} completed!`;
-  confirm.style.position = 'fixed';
-  confirm.style.top = '20px';
-  confirm.style.right = '20px';
-  confirm.style.background = '#4caf50';
-  confirm.style.color = 'white';
-  confirm.style.padding = '12px 18px';
-  confirm.style.borderRadius = '8px';
-  confirm.style.boxShadow = '0 4px 10px rgba(0,0,0,0.2)';
-  confirm.style.zIndex = 1000;
-  document.body.appendChild(confirm);
-  setTimeout(()=> confirm.remove(), 2000);
-}
+  function filterRequests(){
+    const city = (document.getElementById('city').value || '').toLowerCase();
+    const foodType = document.getElementById('foodType').value || '';
+    resultsDiv.innerHTML = '';
+    const filtered = requests.filter(r =>
+      (r.city.toLowerCase().includes(city) || city==="") &&
+      (r.food===foodType || foodType==="")
+    );
 
-// Show all requests by default
-updateMap(requests);
-filterRequests();
+    if(filtered.length===0){
+      resultsDiv.innerHTML = '<p style="color:var(--muted)">No requests found. Try another city or choose "All Food Types".</p>';
+    } else {
+      filtered.forEach(r => {
+        resultsDiv.appendChild(createResultCard(r));
+      });
+    }
+    updateMap(filtered);
+  }
+
+  /* ========== Donation flow (pickup modal + submit to Apps Script) ========= */
+  const backdrop = document.getElementById('pickupBackdrop');
+  const pickupNgoName = document.getElementById('pickupNgoName');
+  const pickupCancel = document.getElementById('pickupCancel');
+  const pickupSubmit = document.getElementById('pickupSubmit');
+  const pickupMsg = document.getElementById('pickupMsg');
+
+  let activeNgo = null; // name of NGO for which modal is open
+
+  // open modal with NGO name
+  function openPickupModal(ngoName) {
+    activeNgo = ngoName;
+    pickupNgoName.innerText = ngoName;
+    // clear fields
+    document.getElementById('donorName').value = '';
+    document.getElementById('donorPhone').value = '';
+    document.getElementById('pickupDate').value = '';
+    document.getElementById('pickupTime').value = '';
+    document.getElementById('pickupQty').value = '';
+    document.getElementById('pickupNotes').value = '';
+    pickupMsg.innerText = '';
+    backdrop.style.display = 'flex';
+    backdrop.setAttribute('aria-hidden','false');
+  }
+  function closePickupModal() {
+    backdrop.style.display = 'none';
+    backdrop.setAttribute('aria-hidden','true');
+  }
+  pickupCancel.addEventListener('click', closePickupModal);
+  backdrop.addEventListener('click', function(e){ if(e.target === backdrop) closePickupModal(); });
+
+  // submit handler
+  pickupSubmit.addEventListener('click', async function(){
+    // simple validation
+    const donorName = document.getElementById('donorName').value.trim();
+    const donorPhone = document.getElementById('donorPhone').value.trim();
+    const date = document.getElementById('pickupDate').value;
+    const time = document.getElementById('pickupTime').value;
+    const qty = document.getElementById('pickupQty').value.trim();
+    const notes = document.getElementById('pickupNotes').value.trim();
+
+    if(!donorName || !donorPhone || !date || !time) {
+      pickupMsg.style.color = 'red';
+      pickupMsg.innerText = 'Please enter your name, phone, date and time.';
+      return;
+    }
+
+    // UI: loading state
+    pickupSubmit.classList.add('loading');
+    pickupSubmit.innerText = 'Sending...';
+
+    // payload includes token for lightweight protection
+    const payload = {
+      token: API_TOKEN,
+      ngo: activeNgo,
+      donorName, donorPhone, date, time, qty, notes,
+      timestamp: new Date().toISOString()
+    };
+
+    try {
+      const res = await fetch(GOOGLE_SCRIPT_WEBAPP_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      const json = await res.json();
+      if(json && json.status === 'ok') {
+        pickupMsg.style.color = 'green';
+        pickupMsg.innerText = 'Pickup request sent — NGO will contact you. Thank you!';
+
+        // optional gamification: increment local counters (remove if undesired)
+        points += 5; mealsSaved += 1;
+        updateProgressUI();
+
+        // auto-close shortly
+        setTimeout(()=> { closePickupModal(); pickupSubmit.classList.remove('loading'); pickupSubmit.innerText = 'Send Pickup Request'; }, 1300);
+      } else {
+        throw new Error(json && json.message ? json.message : 'Unknown error');
+      }
+    } catch (err) {
+      console.error('Pickup submit error', err);
+      pickupMsg.style.color = 'red';
+      pickupMsg.innerText = 'Failed to send request. Please try again or contact NGO directly.';
+      pickupSubmit.classList.remove('loading');
+      pickupSubmit.innerText = 'Send Pickup Request';
+    }
+  });
+
+  /* ========== donate button wiring via delegation ========= */
+  resultsDiv.addEventListener('click', function(e){
+    const btn = e.target.closest('.donateBtn');
+    if(!btn) return;
+    const card = btn.closest('.card');
+    const nameEl = card.querySelector('h3');
+    const name = nameEl ? nameEl.innerText : 'NGO';
+    // open pickup modal for this NGO
+    openPickupModal(name);
+  });
+
+  /* ========= UI wiring for other controls ========= */
+  document.querySelectorAll('nav a[data-target]').forEach(a=>{
+    a.addEventListener('click', (e)=>{
+      const target = a.getAttribute('data-target');
+      if(!target) return;
+      document.querySelectorAll('section').forEach(s=> s.classList.remove('active'));
+      const el = document.getElementById(target);
+      if(el) el.classList.add('active');
+      window.scrollTo({top:0,behavior:'smooth'});
+    });
+  });
+  document.getElementById('goFinder').addEventListener('click', ()=>{
+    document.querySelectorAll('section').forEach(s=> s.classList.remove('active'));
+    document.getElementById('finder').classList.add('active');
+    window.scrollTo({top:0,behavior:'smooth'});
+  });
+  document.getElementById('searchBtn').addEventListener('click', filterRequests);
+  document.getElementById('homeSearch').addEventListener('click', function(){ document.getElementById('city').value = document.getElementById('homeCity').value; document.getElementById('foodType').value = document.getElementById('homeFoodType').value; document.querySelectorAll('section').forEach(s=> s.classList.remove('active')); document.getElementById('finder').classList.add('active'); filterRequests(); });
+
+  document.getElementById('registerBtn').addEventListener('click', registerNGO);
+  document.getElementById('volSignBtn').addEventListener('click', volunteerSignup);
+  document.getElementById('contactSendBtn').addEventListener('click', sendContact);
+
+  /* ========= registerNGO / volunteer / contact from earlier prototype ========= */
+  function registerNGO(){
+    const n = document.getElementById('ngoName').value.trim();
+    const c = document.getElementById('ngoCity').value.trim();
+    const a = document.getElementById('ngoAddress').value.trim();
+    if(!n||!c||!a){ document.getElementById('ngoMsg').innerText='Please fill name, city and address.'; return; }
+    requests.push({city:c, name:n, food: document.getElementById('ngoFoodType').value||'Packaged', address:a, lat:25.276987, lon:55.296249});
+    document.getElementById('ngoMsg').innerText='Thanks — your organisation is added to the demo list.';
+    setTimeout(()=> document.getElementById('ngoMsg').innerText='',3000);
+    if(document.getElementById('finder').classList.contains('active')) filterRequests();
+  }
+  function volunteerSignup(){
+    const n = document.getElementById('volName').value.trim();
+    if(!n){ document.getElementById('volMsg').innerText='Please enter your name.'; return; }
+    document.getElementById('volMsg').innerText='Thanks for signing up! We will contact you (demo).';
+    setTimeout(()=> document.getElementById('volMsg').innerText='',3000);
+  }
+  function sendContact(){
+    const n = document.getElementById('contactName').value.trim();
+    const e = document.getElementById('contactEmail').value.trim();
+    if(!n||!e){ document.getElementById('contactMsg').innerText='Please provide name and email.'; return; }
+    document.getElementById('contactMsg').innerText='Message sent (demo).';
+    setTimeout(()=> document.getElementById('contactMsg').innerText='',3000);
+  }
+
+  /* ===== show all by default on load (keeps original behaviour) ===== */
+  updateMap(requests);
+  filterRequests();
+
+  /* ===== helper functions ===== */
+  function escapeHtml(str) {
+    if(!str) return '';
+    return str.replace(/[&<>"'`=\/]/g, function(s){ return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":"&#39;",'/':'&#x2F;', '`':'&#x60;','=':'&#x3D;'})[s]; });
+  }
+  function updateProgressUI() {
+    pointsSpan.innerText = points;
+    homePoints.innerText = points;
+    const widthPercent = Math.min(mealsSaved * 5, 100) + '%';
+    progressBar.style.width = widthPercent;
+    progressBar.innerText = mealsSaved + ' Meals Saved';
+    homeProgress.style.width = widthPercent;
+    homeProgress.innerText = mealsSaved + ' Meals Saved';
+    if(points>=200) { badgeSpan.innerText = '🏅 Gold Badge'; homeBadge.innerText = '🏅 Gold Badge'; }
+    else if(points>=100){ badgeSpan.innerText = '🥈 Silver Badge'; homeBadge.innerText = '🥈 Silver Badge'; }
+    else if(points>=50){ badgeSpan.innerText = '🥉 Bronze Badge'; homeBadge.innerText = '🥉 Bronze Badge'; }
+    else { badgeSpan.innerText = ''; homeBadge.innerText = ''; }
+  }
+
+  // console helper
+  // console.log('Pickup-ready UI initialized');
+
+});
 </script>
 </body>
 </html>
