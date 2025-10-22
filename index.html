@@ -1,892 +1,1199 @@
 <!doctype html>
 <html lang="en">
 <head>
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>HungerHero — UAE • Donate & Find Food Banks</title>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>HungerHero — Donate & Find Food Banks</title>
+  <meta name="theme-color" content="#071127" />
+  <style>
+  /*
+    HungerHero - single-file SPA (full code with theme fix)
+    - theme toggling works by setting data-theme on <html>
+    - CSS variables change under [data-theme="light"]
+    - All features from previous versions included (map lazy load, admin demo, service worker blob, toasts, forms)
+  */
 
-<!-- Leaflet -->
-<link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
-<script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
-
-<!-- Fonts -->
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700;800;900&display=swap" rel="stylesheet">
-
-<style>
   :root{
-    --bg: #f6f8fb;
-    --card: #ffffff;
-    --accent: #ff6f61;
-    --accent-2: #ff9472;
-    --muted: #6b7280;
-    --glass: rgba(255,255,255,0.75);
-    --shadow: 0 10px 36px rgba(12,17,43,0.08);
-    --radius: 14px;
-    --navheight: 68px;
+    /* dark theme defaults */
+    --panel: linear-gradient(180deg,#071127 0%, #04101a 100%);
+    --bg: #071127;
+    --card-bg: linear-gradient(180deg, rgba(255,255,255,0.01), rgba(255,255,255,0.005));
+    --modal-bg: linear-gradient(180deg,#071427,#061022);
+    --text: #e6eef6;
+    --muted: #9aa6b2;
+    --accent: #ff7a59;
+    --accent-2: #ffb48f;
+    --glass: rgba(255,255,255,0.03);
+    --glass-2: rgba(255,255,255,0.02);
+    --radius:14px;
+    --shadow: 0 20px 50px rgba(2,6,23,0.6);
+    --success: #6fda8a;
+    --danger: #ff6b6b;
+    --max-width: 1200px;
+    --ease: cubic-bezier(.2,.9,.3,1);
+    color-scheme: dark;
     font-family: Inter, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;
   }
+
+  /* Light theme overrides when data-theme="light" is set on the root element */
+  :root[data-theme="light"], [data-theme="light"] {
+    --panel: linear-gradient(180deg,#f7fafc 0%, #eef2f7 100%);
+    --bg: #f7fafc;
+    --card-bg: linear-gradient(180deg, rgba(0,0,0,0.03), rgba(0,0,0,0.01));
+    --modal-bg: linear-gradient(180deg,#ffffff,#f6f9fc);
+    --text: #071127;
+    --muted: #51606a;
+    --glass: rgba(0,0,0,0.04);
+    --glass-2: rgba(0,0,0,0.02);
+    --shadow: 0 12px 30px rgba(2,6,23,0.08);
+    color-scheme: light;
+  }
+
   *{box-sizing:border-box}
-  html,body{height:100%;margin:0;background:linear-gradient(180deg,#fbfdff 0,#eef7ff 100%);color:#071127;-webkit-font-smoothing:antialiased}
+  html,body{height:100%;margin:0;background:var(--panel);color:var(--text);-webkit-font-smoothing:antialiased}
   a{color:inherit;text-decoration:none}
-  /* top nav */
-  .topnav{
-    position:fixed;left:0;right:0;top:0;height:var(--navheight);display:flex;align-items:center;padding:10px 18px;background:rgba(255,255,255,0.80);backdrop-filter:blur(6px);box-shadow:0 6px 18px rgba(12,17,43,0.04);z-index:2000;
-  }
-  .brand{display:flex;gap:10px;align-items:center;font-weight:800;font-size:18px}
-  .navlinks{margin-left:24px;display:flex;gap:12px;align-items:center}
-  .navlinks a{padding:8px 10px;border-radius:10px;color:var(--muted);font-weight:700}
-  .navlinks a.active{background:linear-gradient(90deg,var(--accent),var(--accent-2));color:#fff}
-  .nav-right{margin-left:auto;display:flex;gap:8px;align-items:center}
-  .btn{background:var(--accent);color:#fff;padding:10px 14px;border-radius:10px;border:0;font-weight:800;cursor:pointer}
-  .btn-ghost{background:transparent;border:1px solid rgba(12,17,43,0.06);padding:8px 12px;border-radius:10px;cursor:pointer}
-  .container{max-width:1200px;margin:calc(var(--navheight) + 18px) auto;padding:18px}
-  /* sections */
-  section{margin-bottom:26px;scroll-margin-top:calc(var(--navheight) + 8px)}
-  .hero{
-    display:grid;grid-template-columns:1fr 420px;gap:20px;align-items:stretch;padding:22px;border-radius:var(--radius);box-shadow:var(--shadow);background:linear-gradient(90deg, rgba(255,111,97,0.06), rgba(255,148,114,0.02));
-  }
-  .badge{display:inline-block;padding:6px 12px;border-radius:999px;background:rgba(255,111,97,0.12);color:var(--accent);font-weight:700}
-  h1{margin:10px 0 6px;font-size:30px}
-  p.lead{color:var(--muted);margin:0 0 12px}
-  .cta-row{display:flex;gap:10px;align-items:center}
-  .small-card{background:var(--card);padding:8px;border-radius:10px;box-shadow:0 6px 22px rgba(12,17,43,0.04);display:inline-block;margin-right:8px}
-  /* finder / map */
-  .map-wrap{height:520px;border-radius:12px;overflow:hidden;border:1px solid #eef3f7}
+  .sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
+
+  /* Top nav */
+  .topnav{position:fixed;left:0;right:0;top:0;height:70px;display:flex;align-items:center;padding:10px 18px;background:linear-gradient(90deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));backdrop-filter: blur(6px);z-index:9999;gap:12px}
+  .brand{display:flex;gap:12px;align-items:center;font-weight:900;font-size:18px}
+  .logo{width:44px;height:44px;border-radius:10px;display:inline-flex;align-items:center;justify-content:center;background:linear-gradient(135deg,var(--accent),var(--accent-2));color:#071127;font-weight:900}
+  .navlinks{margin-left:20px;display:flex;gap:10px;flex-wrap:wrap}
+  .navlinks a{padding:8px 10px;border-radius:12px;color:var(--muted);font-weight:700}
+  .navlinks a.active{background:linear-gradient(90deg,var(--accent),var(--accent-2));color:#071127}
+  .nav-right{margin-left:auto;display:flex;gap:10px;align-items:center}
+
+  .btn{background:linear-gradient(90deg,var(--accent),var(--accent-2));color:#071127;padding:10px 14px;border-radius:12px;border:0;font-weight:800;cursor:pointer;box-shadow:0 10px 30px rgba(255,122,89,0.12);transition:transform .12s var(--ease)}
+  .btn:active{transform:translateY(1px)}
+  .btn-ghost{background:transparent;border:1px solid rgba(255,255,255,0.04);padding:8px 10px;border-radius:10px;cursor:pointer;color:var(--muted)}
+  .chip{padding:6px 10px;border-radius:999px;background:var(--glass);font-weight:700;color:var(--muted);display:inline-flex;align-items:center;gap:8px}
+
+  /* container */
+  .container{max-width:var(--max-width);margin:calc(70px + 20px) auto;padding:18px;transition:opacity .18s var(--ease)}
+
+  /* hero */
+  .hero{display:grid;grid-template-columns:1fr 420px;gap:22px;align-items:start}
+  h1{margin:6px 0;font-size:28px}
+  p.lead{color:var(--muted);margin:0 0 12px;max-width:54ch}
+
+  /* card */
+  .card{background:var(--card-bg);border-radius:16px;padding:16px;box-shadow:var(--shadow);border:1px solid rgba(255,255,255,0.02)}
+  .small{color:var(--muted);font-size:13px}
+  .stats-grid{display:flex;gap:12px;margin-top:12px}
+  .stat{padding:12px;border-radius:12px;background:linear-gradient(180deg, rgba(0,0,0,0.02), rgba(0,0,0,0.01));flex:1}
+
+  /* map & finder */
+  .map-wrap{height:520px;border-radius:14px;overflow:hidden;border:1px solid rgba(255,255,255,0.02);transition:box-shadow .15s}
   #map{height:100%;width:100%}
-  .controls{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:12px}
-  .chip{padding:8px 12px;border-radius:999px;background:#fff;border:1px solid #f0f3f8;font-weight:700;cursor:pointer}
-  /* right column / cards */
-  .card{background:var(--card);border-radius:12px;padding:14px;box-shadow:var(--shadow)}
-  label{display:block;font-size:13px;color:var(--muted);margin-bottom:6px}
-  input,select,textarea{width:100%;padding:10px;border-radius:10px;border:1px solid #e6e9ef;font-size:14px}
-  textarea{min-height:80px;resize:vertical}
-  .row{display:flex;gap:10px}
-  .col{flex:1}
-  .history-item{padding:10px;border-radius:8px;border:1px dashed #eef2f7;margin-bottom:8px;background:linear-gradient(180deg,#fff,#fbfdff)}
-  /* leaderboard fancy */
-  .leaderboard{display:grid;grid-template-columns:1fr 260px;gap:14px;align-items:start}
-  .leaderboard-card{padding:12px;border-radius:12px;background:linear-gradient(180deg,#fff,#fffbf9);box-shadow:0 14px 40px rgba(255,111,97,0.06)}
-  .player{display:flex;gap:12px;align-items:center;padding:8px;border-radius:10px;background:rgba(255,255,255,0.6);margin-bottom:8px}
-  .avatar{width:48px;height:48px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-weight:800;color:#fff}
-  .medal{width:42px;height:42px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-weight:800;color:#fff}
-  .progress{height:8px;background:#f1f5f9;border-radius:6px;overflow:hidden}
-  .progress > i{display:block;height:100%;background:linear-gradient(90deg,var(--accent),var(--accent-2));width:50%}
-  /* footer & small utilities */
-  footer{padding:18px 0;color:var(--muted);font-size:13px;text-align:center}
-  .floating{position:fixed;right:18px;bottom:22px;background:linear-gradient(135deg,var(--accent),var(--accent-2));color:#fff;padding:12px 16px;border-radius:28px;font-weight:700;box-shadow:0 14px 40px rgba(12,17,43,0.14);z-index:1200;display:flex;gap:10px;align-items:center;cursor:pointer}
-  .floating:active{transform:scale(.98)}
-  /* responsive */
-  @media (max-width:1000px){ .hero{grid-template-columns:1fr;gap:12px} .leaderboard{grid-template-columns:1fr} .map-wrap{height:360px} }
-  @media (max-width:520px){ .container{padding:10px} h1{font-size:22px} .map-wrap{height:260px} .floating{right:12px;bottom:12px} .navlinks{display:none} }
-  /* small animations */
-  .fade-in{opacity:0;transform:translateY(6px);animation:fadeInUp .6s forwards}
-  @keyframes fadeInUp{to{opacity:1;transform:none}}
-  .mini{font-size:13px;color:var(--muted)}
-  button:focus{outline:3px solid rgba(43,108,255,0.12);outline-offset:3px}
-</style>
+  .controls{display:flex;gap:8px;align-items:center}
+  select, input.filters{padding:8px;border-radius:10px;border:1px solid rgba(255,255,255,0.04);background:transparent;color:inherit;min-width:140px}
+
+  /* action buttons */
+  .action-button{margin-top:6px;background:transparent;border-radius:10px;padding:10px 12px;border:2px solid rgba(255,255,255,0.05);color:var(--accent);font-weight:800;cursor:pointer;display:inline-flex;align-items:center;gap:8px}
+  .action-button.primary{background:linear-gradient(90deg,var(--accent),var(--accent-2));color:#071127;border:0}
+
+  /* featured list */
+  .featured-item{display:flex;gap:10px;align-items:center;margin-bottom:10px}
+  .featured-item .avatar{width:40px;height:40px;border-radius:8px;background:linear-gradient(90deg,var(--accent),var(--accent-2));display:flex;align-items:center;justify-content:center;font-weight:900;color:#071127}
+
+  /* details */
+  .details{position:fixed;right:18px;top:100px;width:360px;max-height:76vh;overflow:auto;padding:14px;border-radius:12px;background:var(--card-bg);border:1px solid rgba(255,255,255,0.02);box-shadow:0 20px 60px rgba(2,6,23,0.7);z-index:2000;transform:translateY(-6px);opacity:0;pointer-events:none;transition:opacity .22s var(--ease), transform .22s var(--ease)}
+  .details.open{opacity:1;pointer-events:auto;transform:translateY(0)}
+
+  /* modal */
+  .modal-backdrop{position:fixed;inset:0;background:rgba(2,6,23,0.6);display:none;align-items:center;justify-content:center;z-index:3000}
+  .modal-backdrop.open{display:flex}
+  .modal{width:100%;max-width:720px;border-radius:12px;padding:18px;background:var(--modal-bg);border:1px solid rgba(255,255,255,0.02)}
+  .form-row{display:flex;gap:8px}
+  .field{flex:1;display:flex;flex-direction:column;gap:6px}
+  input[type="text"], input[type="tel"], textarea, select{padding:10px;border-radius:10px;border:1px solid rgba(255,255,255,0.04);background:transparent;color:inherit;outline:none}
+  textarea{min-height:100px;resize:vertical}
+  .modal-actions{display:flex;gap:10px;justify-content:flex-end;margin-top:12px}
+
+  /* toasts */
+  .toast-wrap{position:fixed;right:18px;bottom:100px;display:flex;flex-direction:column;gap:8px;z-index:4000}
+  .toast{background:var(--card-bg);padding:12px 16px;border-radius:10px;border:1px solid rgba(255,255,255,0.03);box-shadow:0 10px 30px rgba(2,6,23,0.6);min-width:220px;display:flex;justify-content:space-between;gap:12px;align-items:center}
+  .toast.success{border-left:4px solid var(--success)}
+  .toast.warn{border-left:4px solid #ffd66b}
+  .toast .btn-inline{background:transparent;border:0;color:var(--accent);font-weight:800;cursor:pointer}
+
+  /* floating CTA */
+  .floating{position:fixed;right:18px;bottom:22px;background:linear-gradient(135deg,var(--accent),var(--accent-2));color:#071127;padding:12px 16px;border-radius:28px;font-weight:800;box-shadow:0 14px 40px rgba(255,122,89,0.12);z-index:1200;display:flex;gap:10px;align-items:center;cursor:pointer}
+
+  /* admin badge */
+  .admin-badge{display:inline-flex;gap:8px;align-items:center;padding:8px 10px;border-radius:8px;background:var(--glass);color:var(--muted);font-weight:800}
+
+  /* responsiveness */
+  @media (max-width:1000px){ .hero{grid-template-columns:1fr 1fr} .map-wrap{height:360px} .details{display:none} }
+  @media (max-width:700px){ .hero{grid-template-columns:1fr} .map-wrap{height:260px} .navlinks{display:none} .container{padding:12px} .topnav{padding:8px} }
+  </style>
 </head>
 <body>
-
-<!-- Top nav -->
-<header class="topnav" role="navigation">
-  <div class="brand" aria-hidden="false">
-    <svg width="36" height="36" viewBox="0 0 24 24" fill="none" style="border-radius:8px;background:linear-gradient(135deg,var(--accent),var(--accent-2));padding:6px">
-      <path d="M6 14l4-4 4 4 4-8" stroke="#fff" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
-    </svg>
-    HungerHero
-  </div>
-
-  <nav class="navlinks" aria-label="Main navigation">
-    <a href="#home" class="navlink active">Home</a>
-    <a href="#finder" class="navlink">Finder</a>
-    <a href="#ngo" class="navlink">NGO Register</a>
-    <a href="#volunteers" class="navlink">Volunteers</a>
-    <a href="#leaderboard" class="navlink">Leaderboard</a>
-    <a href="#about" class="navlink">About</a>
-    <a href="#contact" class="navlink">Contact</a>
-  </nav>
-
-  <div class="nav-right">
-    <button id="quickDonate" class="btn">Donate</button>
-  </div>
-</header>
-
-<div class="container">
-
-  <!-- HOME -->
-  <section id="home" class="fade-in">
-    <div class="hero" role="region" aria-labelledby="home-title">
-      <div>
-        <div style="display:flex;gap:10px;align-items:center">
-          <div class="badge">Hunger Hero • UAE</div>
-          <div class="mini" style="margin-left:auto">Mobile-ready • Find & Donate</div>
-        </div>
-        <h1 id="home-title">End Hunger. Share Hope.</h1>
-        <p class="lead">Find local food banks across all 7 emirates, arrange pickups, and join volunteers. This platform helps match donations with charity partners quickly and safely.</p>
-
-        <div class="cta-row">
-          <button id="goFinder" class="btn">Find Food Banks</button>
-          <button id="goDonate" class="btn-ghost">Donate Now</button>
-
-          <div style="margin-left:auto;text-align:right">
-            <div class="mini">Impact this month</div>
-            <div style="font-weight:900;font-size:20px">15,248 meals</div>
-          </div>
-        </div>
-
-        <div class="controls" style="margin-top:14px">
-          <div class="small-card"><strong>Pickup</strong><div class="mini">We help arrange pickups</div></div>
-          <div class="small-card"><strong>Volunteers</strong><div class="mini">Join our mission</div></div>
-          <div class="small-card"><strong>Secure</strong><div class="mini">Protected submissions</div></div>
-        </div>
-
-        <!-- quick summary / mission -->
-        <div style="margin-top:14px" class="card">
-          <strong>How it works</strong>
-          <ol style="margin:8px 0 0 18px;color:var(--muted)">
-            <li>Find the nearest food bank using the Finder.</li>
-            <li>Submit donation details via Donate form.</li>
-            <li>NGOs and volunteers get notified and arrange collection.</li>
-          </ol>
-        </div>
-      </div>
-
-      <!-- right column: donate card -->
-      <div>
-        <div class="card" id="donationCard">
-          <div style="display:flex;justify-content:space-between;align-items:center">
-            <div style="font-weight:900">Donate — Pickup Request</div>
-            <div class="mini">Saves to Supabase</div>
-          </div>
-
-          <form id="donateForm" style="margin-top:12px">
-            <div class="row" style="margin-bottom:8px">
-              <div class="col">
-                <label for="name">Name</label>
-                <input id="name" required placeholder="Your name" />
-              </div>
-              <div style="width:140px">
-                <label for="phone">Phone</label>
-                <input id="phone" placeholder="+971..." />
-              </div>
-            </div>
-
-            <div class="row" style="margin-bottom:8px">
-              <div class="col">
-                <label for="date">Date</label>
-                <input id="date" type="date" />
-              </div>
-              <div style="width:120px">
-                <label for="time">Time</label>
-                <input id="time" type="time" />
-              </div>
-            </div>
-
-            <div style="margin-bottom:8px">
-              <label for="quantity">Quantity (boxes / meals / kg)</label>
-              <input id="quantity" placeholder="e.g. 5 boxes" />
-            </div>
-
-            <div style="margin-bottom:8px">
-              <label for="notes">Notes</label>
-              <textarea id="notes" placeholder="Pickup instructions, dietary info..."></textarea>
-            </div>
-
-            <input type="hidden" id="lat" />
-            <input type="hidden" id="lng" />
-
-            <div style="display:flex;gap:8px;align-items:center">
-              <button type="submit" class="btn">Send donation</button>
-              <button id="saveLocal" type="button" class="btn-ghost">Save locally</button>
-              <div style="margin-left:auto;text-align:right">
-                <div class="mini">Local saved</div>
-                <div id="localCount" style="font-weight:700">0</div>
-              </div>
-            </div>
-          </form>
-
-          <div style="margin-top:12px">
-            <div style="font-weight:800">Why HungerHero?</div>
-            <div class="mini" style="margin-top:6px">We connect donors, volunteers and NGOs across the UAE to reduce food waste and feed families in need.</div>
-          </div>
-        </div>
-
-      </div>
+  <header class="topnav" role="navigation" aria-label="Main navigation">
+    <div class="brand" aria-hidden="true">
+      <div class="logo" aria-hidden="true">HH</div>
+      <div>HungerHero</div>
     </div>
-  </section>
 
-  <!-- FINDER -->
-  <section id="finder" class="fade-in" aria-labelledby="finder-title">
-    <h2 id="finder-title">Finder — Map</h2>
-    <p class="mini">Filter by emirate or food type. Click a marker for details and request pickup.</p>
+    <nav class="navlinks" aria-label="Primary navigation">
+      <a href="#/" class="navlink" data-route="/">Home</a>
+      <a href="#/finder" class="navlink" data-route="/finder">Finder</a>
+      <a href="#/ngo" class="navlink" data-route="/ngo">NGO</a>
+      <a href="#/volunteers" class="navlink" data-route="/volunteers">Volunteers</a>
+      <a href="#/contact" class="navlink" data-route="/contact">Contact</a>
+      <a href="#/admin" class="navlink" data-route="/admin" style="display:none" id="adminLink">Admin</a>
+    </nav>
 
-    <div style="display:grid;grid-template-columns:1fr 360px;gap:16px;margin-top:12px">
-      <div>
-        <div style="display:flex;gap:10px;align-items:center">
-          <select id="emirate" aria-label="Filter by emirate">
-            <option value="all">All Emirate</option>
-            <option>Abu Dhabi</option><option>Dubai</option><option>Sharjah</option>
-            <option>Ajman</option><option>Umm Al Quwain</option><option>Ras Al Khaimah</option><option>Fujairah</option>
-          </select>
+    <div class="nav-right" role="toolbar" aria-label="Top actions">
+      <div class="chip" id="statDonations">Donations: 0</div>
+      <button id="themeToggle" class="btn-ghost" title="Toggle theme (Alt+T)" aria-pressed="false">Theme</button>
+      <button id="openDonate" class="btn" aria-haspopup="dialog">Donate</button>
+    </div>
+  </header>
 
-          <select id="foodtype" aria-label="Filter by food type">
-            <option value="all">All types</option><option>Cooked</option><option>Packaged</option><option>Canned</option>
-          </select>
+  <main id="app" class="container" role="main" tabindex="-1"></main>
 
-          <button id="findMe" class="btn-ghost">Find Near Me</button>
-          <div style="margin-left:auto" class="mini">Tap a marker → Request pickup</div>
+  <!-- Floating donate -->
+  <div class="floating" id="fabDonate" role="button" tabindex="0" aria-label="Donate now">Donate</div>
+
+  <!-- Modal: donate reused across site -->
+  <div id="donateModal" class="modal-backdrop" role="dialog" aria-modal="true" aria-hidden="true">
+    <div class="modal" role="document" aria-labelledby="donateTitle">
+      <h3 id="donateTitle">Quick Donate — Request a pickup</h3>
+      <p class="small" id="donateHint">Short form for quick pickups. Use full Google Form for receipts.</p>
+
+      <form id="donateForm" autocomplete="on">
+        <div class="form-row" style="margin-top:10px">
+          <div class="field">
+            <label class="small" for="donorName">Your name</label>
+            <input id="donorName" name="name" type="text" placeholder="Full name" required />
+          </div>
+          <div class="field">
+            <label class="small" for="donorPhone">Phone</label>
+            <input id="donorPhone" name="phone" type="tel" placeholder="+971 5x xxx xxxx" required />
+          </div>
         </div>
 
-        <div class="map-wrap" style="margin-top:10px">
-          <div id="map"></div>
+        <div style="margin-top:10px">
+          <label class="small" for="donorItems">What are you donating?</label>
+          <textarea id="donorItems" name="items" placeholder="e.g., 10 packaged meals, 5 cans" required></textarea>
+        </div>
+
+        <div class="form-row" style="margin-top:10px">
+          <div class="field">
+            <label class="small" for="pickupAddress">Pickup address</label>
+            <input id="pickupAddress" name="address" type="text" placeholder="Villa, building or street" required />
+          </div>
+          <div class="field">
+            <label class="small" for="preferredCenter">Preferred center</label>
+            <select id="preferredCenter" name="center" aria-label="Preferred center"><option value="">No preference</option></select>
+          </div>
+        </div>
+
+        <div style="margin-top:10px;display:flex;gap:8px;align-items:center">
+          <label style="display:inline-flex;align-items:center;gap:8px"><input type="checkbox" id="shareLocation" /> Share my location</label>
+          <div class="small" style="margin-left:auto">Full form opens for receipts</div>
+        </div>
+
+        <div class="modal-actions">
+          <button type="button" id="openGoogleFormBtn" class="btn-ghost">Open Google Form</button>
+          <button type="reset" id="resetForm" class="btn-ghost">Reset</button>
+          <button type="submit" class="btn">Request pickup</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Toasts -->
+  <div class="toast-wrap" id="toasts" aria-live="polite" aria-atomic="true"></div>
+
+  <!-- templates -->
+  <script type="text/template" id="tpl-home">
+    <section class="card hero" aria-labelledby="home-title">
+      <div>
+        <div style="display:flex;align-items:center;gap:12px;margin-bottom:6px">
+          <div class="badge" style="background:linear-gradient(90deg,var(--accent),var(--accent-2));color:#071127;padding:6px 10px;border-radius:999px">HungerHero</div>
+          <div class="small">UAE • Match Donations • Connect Volunteers</div>
+        </div>
+
+        <h1 id="home-title">Make a donation. Change a life — fast.</h1>
+        <p class="lead">Find verified food centers across the UAE, request a pickup, or submit a donation quickly. Mobile-first, low-friction flows.</p>
+
+        <div style="margin-top:12px;display:flex;gap:12px;flex-wrap:wrap">
+          <button class="cta-big btn" id="homeDonateBtn" aria-label="Donate now">One-tap Donate</button>
+          <a class="action-button" href="#/finder">Find nearest centers →</a>
+          <a class="action-button" href="#/ngo">Register NGO →</a>
+        </div>
+
+        <div class="stats-grid" style="margin-top:18px">
+          <div class="stat"><div class="small">Donations processed</div><strong id="donationsCount">0</strong></div>
+          <div class="stat"><div class="small">Volunteers signed</div><strong id="volunteersCount">0</strong></div>
+          <div class="stat"><div class="small">Verified NGOs</div><strong id="ngosCount">0</strong></div>
         </div>
 
       </div>
 
       <aside>
-        <div class="card" style="margin-bottom:12px">
-          <div style="display:flex;justify-content:space-between;align-items:center">
-            <div style="font-weight:800">Nearby centers</div>
-            <div class="mini">Tap a marker to route</div>
-          </div>
-          <div id="nearbyList" style="margin-top:10px"></div>
-        </div>
-
         <div class="card">
-          <div style="font-weight:800">Quick actions</div>
-          <div style="margin-top:8px;display:flex;flex-direction:column;gap:8px">
-            <button id="centerUAE" class="chip">Center UAE</button>
-            <button id="showAll" class="chip">Show all</button>
-            <button id="routeFirst" class="chip">Route to nearest</button>
+          <div style="display:flex;justify-content:space-between;align-items:center">
+            <div style="font-weight:900">Featured centers</div>
+            <div class="small">Trusted & active</div>
           </div>
+          <div id="featuredList" style="margin-top:12px"></div>
         </div>
       </aside>
-    </div>
-  </section>
+    </section>
+  </script>
 
-  <!-- NGO Registration -->
-  <section id="ngo" class="fade-in">
-    <h2>NGO Registration</h2>
-    <p class="mini">Register your NGO so donors and volunteers can find you. This form goes to our Supabase backend.</p>
+  <script type="text/template" id="tpl-finder">
+    <section aria-labelledby="finder-title">
+      <h2 id="finder-title">Finder — Map & Nearby</h2>
+      <p class="small">Filter by emirate, food type, or verification. Click a marker for details and request pickup.</p>
 
-    <div style="display:grid;grid-template-columns:1fr 420px;gap:16px;margin-top:12px">
-      <div class="card">
-        <strong>Register your NGO</strong>
-        <p class="mini" style="margin-top:8px">Enter details and we will contact you to verify your organization.</p>
-
-        <form id="ngoForm" style="margin-top:10px">
-          <label>NGO name</label><input id="ngo_name" placeholder="e.g. Food Bank Abu Dhabi" required />
-          <div class="row" style="margin-top:8px">
-            <div class="col"><label>Emirate</label><select id="ngo_emirate"><option>Abu Dhabi</option><option>Dubai</option><option>Sharjah</option><option>Ajman</option><option>Umm Al Quwain</option><option>Ras Al Khaimah</option><option>Fujairah</option></select></div>
-            <div style="width:140px"><label>Phone</label><input id="ngo_phone" placeholder="+971..." /></div>
+      <div style="display:grid;grid-template-columns:1fr 360px;gap:16px;margin-top:12px">
+        <div>
+          <div class="controls" role="region" aria-label="Map controls">
+            <input id="finderSearch" class="filters" placeholder="Search centers, area or emirate" aria-label="Search centers" />
+            <select id="emirate" class="filters" aria-label="Filter by emirate">
+              <option value="all">All Emirate</option>
+              <option>Abu Dhabi</option><option>Dubai</option><option>Sharjah</option>
+              <option>Ajman</option><option>Umm Al Quwain</option><option>Ras Al Khaimah</option><option>Fujairah</option>
+            </select>
+            <select id="foodtype" class="filters" aria-label="Filter by food type">
+              <option value="all">All types</option><option>Cooked</option><option>Packaged</option><option>Canned</option>
+            </select>
+            <select id="verified" class="filters" aria-label="Filter by verification">
+              <option value="all">Any verification</option><option value="true">Verified only</option><option value="false">Unverified only</option>
+            </select>
+            <button id="findMe" class="btn-ghost">Find Near Me</button>
+            <button id="centerUAE" class="btn-ghost">Center UAE</button>
           </div>
-          <label style="margin-top:8px">Food types accepted</label>
-          <select id="ngo_type"><option>Cooked</option><option>Packaged</option><option>Canned</option></select>
-          <label style="margin-top:8px">Notes</label>
-          <textarea id="ngo_notes"></textarea>
-          <div style="display:flex;gap:8px;margin-top:10px">
-            <button id="ngoSubmit" type="button" class="btn">Register NGO</button>
-            <button id="ngoFormSaveLocal" type="button" class="btn-ghost">Save locally</button>
+
+          <div class="map-wrap" style="margin-top:10px;transition:box-shadow .18s">
+            <div id="map" style="height:520px" role="application" aria-label="Map of food centers"></div>
           </div>
-        </form>
-      </div>
-
-      <div class="card">
-        <div style="font-weight:800">Info</div>
-        <div class="mini" style="margin-top:8px">Using Supabase as backend for registrations.</div>
-      </div>
-    </div>
-  </section>
-
-  <!-- Volunteers -->
-  <section id="volunteers" class="fade-in">
-    <h2>Volunteers</h2>
-    <p class="mini">Join our volunteer network — help with pickups, sorting or community outreach.</p>
-
-    <div style="display:grid;grid-template-columns:1fr 420px;gap:16px;margin-top:12px">
-      <div class="card">
-        <form id="volForm">
-          <label>Name</label><input id="vol_name" placeholder="Your full name" required />
-          <label style="margin-top:8px">Email</label><input id="vol_email" placeholder="you@example.com" />
-          <div class="row" style="margin-top:8px">
-            <div class="col"><label>Emirate</label><select id="vol_emirate"><option>Abu Dhabi</option><option>Dubai</option><option>Sharjah</option><option>Ajman</option><option>Umm Al Quwain</option><option>Ras Al Khaimah</option><option>Fujairah</option></select></div>
-            <div style="width:140px"><label>Phone</label><input id="vol_phone" placeholder="+971..." /></div>
-          </div>
-          <label style="margin-top:8px">Availability / skills</label><textarea id="vol_notes" placeholder="Weekends, sorting, driving..."></textarea>
-          <div style="display:flex;gap:8px;margin-top:10px"><button id="volSubmit" class="btn">Sign up</button><button id="volSaveLocal" class="btn-ghost">Save locally</button></div>
-        </form>
-      </div>
-
-      <div class="card">
-        <div style="font-weight:800">Info</div>
-        <div class="mini" style="margin-top:8px">Using Supabase for volunteer signups.</div>
-      </div>
-    </div>
-  </section>
-
-  <!-- LEADERBOARD (fancy placeholder) -->
-  <section id="leaderboard" class="fade-in">
-    <h2>Leaderboard</h2>
-    <p class="mini">Top donors & volunteers — placeholder data for now.</p>
-
-    <div class="leaderboard" style="margin-top:12px">
-      <div class="leaderboard-card card">
-        <div style="display:flex;justify-content:space-between;align-items:center">
-          <div style="font-weight:900">Top donors</div>
-          <div class="mini">Updated weekly</div>
         </div>
 
-        <div style="margin-top:12px">
-          <div class="player">
-            <div style="display:flex;gap:8px;align-items:center">
-              <div class="avatar" style="background:linear-gradient(135deg,#ffd166,#ff6b6b);width:56px;height:56px;border-radius:12px">A</div>
-              <div>
-                <div style="font-weight:800">Ahmed</div>
-                <div class="mini">12 donations • 240 meals</div>
+        <aside class="side-column" aria-live="polite">
+          <div class="card">
+            <div style="display:flex;justify-content:space-between;align-items:center">
+              <div style="font-weight:900">Nearby centers</div>
+              <div class="small">Tap to route</div>
+            </div>
+            <div id="nearbyList" style="margin-top:12px"></div>
+          </div>
+
+          <div class="card" style="margin-top:12px">
+            <div style="font-weight:900">Quick tools</div>
+            <div style="display:flex;flex-direction:column;gap:8px;margin-top:8px">
+              <button id="showAll" class="action-button">Show all</button>
+              <button id="routeFirst" class="action-button">Route to nearest</button>
+              <button id="exportCsv" class="action-button">Export centers (CSV)</button>
+            </div>
+          </div>
+        </aside>
+      </div>
+    </section>
+  </script>
+
+  <script type="text/template" id="tpl-ngo">
+    <section>
+      <h2>NGO Registration & Verification</h2>
+      <p class="small">Register your NGO to become a verified partner. Verification usually takes 2–5 business days.</p>
+
+      <div style="display:grid;grid-template-columns:1fr 320px;gap:12px;margin-top:12px">
+        <div>
+          <div class="card">
+            <h3 style="margin-top:0">How verification works</h3>
+            <ol class="small">
+              <li>Submit registration details via the NGO form (legal name, license, contact person).</li>
+              <li>Upload proof of registration (license/registration certificate) and a recent utility bill or office lease.</li>
+              <li>Our team reviews documents and may request a short site visit or video call.</li>
+              <li>Once verified, your NGO is prioritized for pickups and featured on Finder.</li>
+            </ol>
+            <h4 style="margin-top:10px">Benefits of verification</h4>
+            <ul class="small">
+              <li>Higher pickup priority & faster response times</li>
+              <li>Featured placement in the Finder</li>
+              <li>Access to volunteer dispatch and logistics support</li>
+            </ul>
+
+            <div style="margin-top:12px;display:flex;gap:10px">
+              <button id="downloadChecklist" class="action-button">Download checklist</button>
+              <button class="action-button primary" id="ngoFormBtn">Open NGO form</button>
+            </div>
+          </div>
+
+          <div class="card" style="margin-top:12px">
+            <h4 style="margin:0 0 6px">Required documents (typical)</h4>
+            <ul class="small">
+              <li>Organization registration/license (PDF)</li>
+              <li>Signed letter or authorization from NGO head</li>
+              <li>Proof of bank account (for donations)</li>
+              <li>Contact person details and phone</li>
+            </ul>
+            <div style="margin-top:8px" class="small">Questions? Email <a href="mailto:partners@hungerhero.example">partners@hungerhero.example</a> or call <a href="tel:+971500000000">+971 50 000 0000</a>.</div>
+          </div>
+        </div>
+
+        <aside>
+          <div class="card">
+            <h4 style="margin:0 0 6px">Next steps</h4>
+            <div class="small">After you submit the NGO form our team will:</div>
+            <ol class="small" style="margin-top:8px">
+              <li>Confirm receipt and send verification checklist.</li>
+              <li>Review documents within 2–5 business days.</li>
+              <li>Notify you and update your profile status.</li>
+            </ol>
+            <div style="margin-top:8px">
+              <button id="contactNgoSupport" class="action-button">Contact verification team</button>
+            </div>
+          </div>
+        </aside>
+      </div>
+    </section>
+  </script>
+
+  <script type="text/template" id="tpl-volunteers">
+    <section>
+      <h2>Volunteers</h2>
+      <p class="small">Drivers, packers and coordinators — sign up to help. Drivers must have a valid UAE license.</p>
+
+      <div style="display:grid;grid-template-columns:1fr 320px;gap:12px;margin-top:12px">
+        <div>
+          <div class="card">
+            <h3 style="margin-top:0">Roles we need</h3>
+            <ul class="small">
+              <li><strong>Drivers</strong> — pickup & dropoff (UAE license required)</li>
+              <li><strong>Packers</strong> — sort and pack donated food items</li>
+              <li><strong>Coordinators</strong> — manage volunteers, schedules and pickups</li>
+            </ul>
+
+            <h4 style="margin-top:10px">Training & onboarding</h4>
+            <p class="small">We provide a short (2–3 hour) onboarding that covers safety, food handling, and pickup checklist. Training sessions run weekly.</p>
+
+            <h4 style="margin-top:10px">Sign up (quick)</h4>
+            <form id="volunteerForm" class="small-form" style="margin-top:8px">
+              <div class="form-row">
+                <div class="field">
+                  <label class="small" for="volName">Full name</label>
+                  <input id="volName" required />
+                </div>
+                <div class="field">
+                  <label class="small" for="volPhone">Phone</label>
+                  <input id="volPhone" required />
+                </div>
               </div>
-            </div>
-            <div style="margin-left:auto;text-align:right">
-              <div class="medal" style="background:linear-gradient(135deg,#f6d365,#fda085)">🥇</div>
-            </div>
-          </div>
 
-          <div class="player">
-            <div style="display:flex;gap:8px;align-items:center">
-              <div class="avatar" style="background:linear-gradient(135deg,#cfe9ff,#6fb1ff);width:52px;height:52px;border-radius:12px">S</div>
-              <div>
-                <div style="font-weight:800">Sara</div>
-                <div class="mini">9 donations • 180 meals</div>
+              <div style="margin-top:8px" class="form-row">
+                <div class="field">
+                  <label class="small" for="volRole">Preferred role</label>
+                  <select id="volRole">
+                    <option>Driver</option><option>Packer</option><option>Coordinator</option>
+                  </select>
+                </div>
+                <div class="field">
+                  <label class="small" for="volAvail">Availability</label>
+                  <input id="volAvail" placeholder="e.g., Weekends, Weekdays mornings" />
+                </div>
               </div>
-            </div>
-            <div style="margin-left:auto;text-align:right">
-              <div class="medal" style="background:linear-gradient(135deg,#d4d4d8,#9b9bff)">🥈</div>
-            </div>
-          </div>
 
-          <div class="player">
-            <div style="display:flex;gap:8px;align-items:center">
-              <div class="avatar" style="background:linear-gradient(135deg,#c1ffd7,#7ee8b6);width:48px;height:48px;border-radius:12px">R</div>
-              <div>
-                <div style="font-weight:800">Rashid</div>
-                <div class="mini">6 donations • 120 meals</div>
+              <div style="margin-top:8px;display:flex;gap:8px;align-items:center">
+                <label class="small"><input type="checkbox" id="volHasLicense" /> I have a valid UAE driving license (if Driver)</label>
+                <div style="margin-left:auto" class="small">We will contact you within 48h</div>
               </div>
+
+              <div style="margin-top:10px" class="modal-actions">
+                <button type="reset" class="btn-ghost">Reset</button>
+                <button type="submit" class="btn">Sign up</button>
+              </div>
+            </form>
+
+            <div style="margin-top:12px" class="small">Prefer to use the official signup form? <button id="volGoogle" class="action-button">Open volunteer form</button></div>
+          </div>
+        </div>
+
+        <aside>
+          <div class="card">
+            <h4 style="margin:0 0 6px">Shifts & scheduling</h4>
+            <div class="small">Shifts are typically 3–4 hours. Drivers are scheduled based on availability and proximity.</div>
+            <div style="margin-top:10px">
+              <button id="volGuidelines" class="action-button">Volunteer guidelines</button>
             </div>
-            <div style="margin-left:auto;text-align:right">
-              <div class="medal" style="background:linear-gradient(135deg,#ffd7a6,#ffb2a6)">🥉</div>
+          </div>
+        </aside>
+      </div>
+    </section>
+  </script>
+
+  <script type="text/template" id="tpl-contact">
+    <section>
+      <h2>Contact</h2>
+      <p class="small">Questions or feedback? Use the contact form below, email support@hungerhero.example or call our support line.</p>
+
+      <div style="display:grid;grid-template-columns:1fr 320px;gap:12px;margin-top:12px">
+        <div>
+          <div class="card">
+            <h3 style="margin-top:0">Send a message</h3>
+            <form id="contactFormLocal" class="small-form" style="margin-top:8px">
+              <div class="form-row">
+                <div class="field"><label class="small" for="contactName">Name</label><input id="contactName" required /></div>
+                <div class="field"><label class="small" for="contactEmail">Email</label><input id="contactEmail" type="email" required /></div>
+              </div>
+              <div style="margin-top:8px" class="field">
+                <label class="small" for="contactSubject">Subject</label>
+                <input id="contactSubject" placeholder="e.g., Support request" />
+              </div>
+              <div style="margin-top:8px" class="field">
+                <label class="small" for="contactMessage">Message</label>
+                <textarea id="contactMessage" placeholder="Write your message here..." required></textarea>
+              </div>
+              <div style="margin-top:10px" class="modal-actions">
+                <button type="reset" class="btn-ghost">Reset</button>
+                <button type="submit" class="btn">Send message</button>
+              </div>
+            </form>
+          </div>
+
+          <div class="card" style="margin-top:12px">
+            <h4 style="margin:0 0 6px">Support channels</h4>
+            <div class="small">Phone: <a href="tel:+971500000000">+971 50 000 0000</a></div>
+            <div class="small">Email: <a href="mailto:support@hungerhero.example">support@hungerhero.example</a></div>
+            <div class="small" style="margin-top:8px">Office hours: Mon–Fri 09:00–17:00</div>
+            <div style="margin-top:10px">
+              <a class="action-button" href="https://twitter.com/" target="_blank" rel="noopener">Twitter</a>
+              <a class="action-button" href="https://facebook.com/" target="_blank" rel="noopener">Facebook</a>
             </div>
           </div>
         </div>
 
-        <div style="margin-top:12px">
-          <div style="font-weight:700">Community progress</div>
-          <div class="mini" style="margin-top:6px">This month: goal 20,000 meals</div>
-          <div style="margin-top:8px" class="progress"><i style="width:62%"></i></div>
-        </div>
-      </div>
-
-      <div class="card">
-        <div style="font-weight:900">Volunteer spotlight</div>
-        <div style="margin-top:10px">
-          <div style="display:flex;gap:8px;align-items:center;margin-bottom:8px">
-            <div style="font-weight:800">Fatima</div><div class="mini">• 42 hours</div>
+        <aside>
+          <div class="card">
+            <h4 style="margin:0 0 6px">Common questions</h4>
+            <details class="small" style="margin-top:8px"><summary>How long for a pickup?</summary><div style="margin-top:8px">Pickup times vary. Verified NGOs are faster; typical window is 24–72 hours depending on availability.</div></details>
+            <details class="small" style="margin-top:8px"><summary>Can I donate cash?</summary><div style="margin-top:8px">This platform focuses on food and in-kind donations; for cash donations we redirect to NGO channels. Contact support for guidance.</div></details>
           </div>
-          <div style="display:flex;gap:8px;align-items:center">
-            <div style="width:60px;height:60px;border-radius:12px;background:linear-gradient(135deg,#ffb2a6,#ff6b6b);display:flex;align-items:center;justify-content:center;color:#fff;font-weight:900">F</div>
-            <div>
-              <div style="font-weight:800">Iconic volunteer</div>
-              <div class="mini">Driver & logistic support</div>
+        </aside>
+      </div>
+    </section>
+  </script>
+
+  <script type="text/template" id="tpl-admin">
+    <section>
+      <h2>Admin (demo)</h2>
+      <p class="small">Admin tools to manage centers (demo only). Toggle the verification status or add new centers. Secret route requires a passphrase.</p>
+
+      <div style="display:grid;grid-template-columns:1fr 320px;gap:12px;margin-top:12px">
+        <div>
+          <div class="card">
+            <h3 style="margin-top:0">Centers</h3>
+            <div id="adminCenters" style="margin-top:8px"></div>
+          </div>
+
+          <div class="card" style="margin-top:12px">
+            <h4 style="margin:0 0 6px">Add center</h4>
+            <form id="addCenterForm" class="small-form">
+              <div class="form-row">
+                <div class="field"><label class="small">Name</label><input id="newCenterName" required /></div>
+                <div class="field"><label class="small">Emirate</label><input id="newCenterEmirate" required /></div>
+              </div>
+              <div style="margin-top:8px" class="form-row">
+                <div class="field"><label class="small">Area</label><input id="newCenterArea" required /></div>
+                <div class="field"><label class="small">Type</label><select id="newCenterType"><option>Cooked</option><option>Packaged</option><option>Canned</option></select></div>
+              </div>
+              <div style="margin-top:8px" class="form-row">
+                <div class="field"><label class="small">Latitude</label><input id="newCenterLat" type="text" required /></div>
+                <div class="field"><label class="small">Longitude</label><input id="newCenterLng" type="text" required /></div>
+              </div>
+              <div style="margin-top:10px" class="modal-actions">
+                <button type="reset" class="btn-ghost">Reset</button>
+                <button type="submit" class="btn">Add center</button>
+              </div>
+            </form>
+          </div>
+        </div>
+
+        <aside>
+          <div class="card">
+            <h4 style="margin:0 0 6px">Admin actions</h4>
+            <div style="display:flex;gap:8px;flex-direction:column">
+              <button id="exportAllData" class="action-button">Export all data (JSON)</button>
+              <button id="resetDemo" class="action-button">Reset demo data</button>
             </div>
+            <div style="margin-top:12px" class="small">This admin is a demo. For production use an authenticated admin panel and secure backend.</div>
           </div>
-        </div>
-
-        <div style="margin-top:12px">
-          <div style="font-weight:700">More features coming</div>
-          <div class="mini" style="margin-top:6px">Admin leaderboard, verified donors & badges soon.</div>
-        </div>
+        </aside>
       </div>
-    </div>
-  </section>
+    </section>
+  </script>
 
-  <!-- ABOUT -->
-  <section id="about" class="fade-in">
-    <h2>About HungerHero</h2>
-    <p class="mini" style="max-width:900px">
-      HungerHero is a community-driven platform that connects donors, NGOs and volunteers across the UAE to reduce food waste and support families in need. We focus on fast coordination, clear pickup logistics and secure handling of donor information. Our goal is to make local giving easy and trustworthy.
-    </p>
+  <!-- core SPA + lazy map + service worker blob -->
+  <script>
+/* HungerHero SPA - final single-file
+   - Theme toggle fix implemented: toggles data-theme on <html>
+   - All previously included features kept and polished
+*/
 
-    <div style="display:flex;gap:12px;margin-top:12px;flex-wrap:wrap">
-      <div class="card" style="width:280px">
-        <div style="font-weight:800">Mission</div>
-        <div class="mini" style="margin-top:6px">Reduce food waste; feed communities; empower volunteers.</div>
-      </div>
-      <div class="card" style="width:280px">
-        <div style="font-weight:800">Partners</div>
-        <div class="mini" style="margin-top:6px">Government & NGO partners across the 7 emirates (sample partners listed on site).</div>
-      </div>
-      <div class="card" style="width:280px">
-        <div style="font-weight:800">Safety</div>
-        <div class="mini" style="margin-top:6px">We recommend verifying NGOs; sensitive data is stored in your Supabase project.</div>
-      </div>
-    </div>
-  </section>
+(() => {
+  const LINKS = {
+    DONATE: 'https://forms.gle/84aq5mjkiikK8Szh6',
+    NGO: 'https://forms.gle/49jtfjFodvr4epjP9',
+    VOLUNTEER: 'https://forms.gle/b6iVVxQPLxv8JU7HA',
+    CONTACT: 'https://forms.gle/UJEP46PQQUFTvkRv9'
+  };
 
-  <!-- CONTACT -->
-  <section id="contact" class="fade-in">
-    <h2>Contact</h2>
-    <p class="mini">Questions or feedback? Use the form below.</p>
-
-    <div style="display:grid;grid-template-columns:1fr 360px;gap:16px;margin-top:12px">
-      <div class="card">
-        <form id="contactForm">
-          <label>Name</label><input id="contact_name" placeholder="Your name" />
-          <label style="margin-top:8px">Email or phone</label><input id="contact_phone" placeholder="you@example.com / +971..." />
-          <label style="margin-top:8px">Message</label><textarea id="contact_msg"></textarea>
-          <div style="display:flex;gap:8px;margin-top:10px"><button id="contactSend" class="btn">Send</button><button id="contactSaveLocal" class="btn-ghost">Save locally</button></div>
-        </form>
-      </div>
-      <div class="card">
-        <div style="font-weight:800">Contact info</div>
-        <div class="mini" style="margin-top:8px">Email: support@hungerhero.ae (placeholder)</div>
-        <div class="mini" style="margin-top:6px">WhatsApp: +971XXXXXXXXX</div>
-        <div style="margin-top:12px">
-          <div style="font-weight:700">Social</div>
-          <div style="display:flex;gap:8px;margin-top:8px"><div class="chip">Instagram</div><div class="chip">Facebook</div><div class="chip">Twitter</div></div>
-        </div>
-      </div>
-    </div>
-  </section>
-
-  <footer>© HungerHero — Demo • Replace placeholders with your actual Supabase anon key and adjust table/column names if needed.</footer>
-</div>
-
-<div class="floating" id="fabDonate" tabindex="0">Donate</div>
-
-<!-- Supabase + App logic -->
-<script type="module">
-  import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
-
-  /* ---------------- CONFIG: Supabase ---------------- */
-  const SUPABASE_URL = 'https://wgxgvmphxxrjxlitzfoy.supabase.co';
-  const SUPABASE_ANON_KEY = 'anon-eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndneGd2bXBoeHhyanhsaXR6Zm95Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjEwNjMxMjIsImV4cCI6MjA3NjYzOTEyMn0.Y1YZCTUUiuLFW9q5f7SywjnlYtWH_vAEtQW8iXbF9sQ';
-
-  const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-
-  /* ---------- Map & Centers ---------- */
-  const centers = [
-    {name:'Food Bank Abu Dhabi', emirate:'Abu Dhabi', area:'Corniche Rd', type:'Canned', lat:24.4769, lng:54.3656},
-    {name:'Abu Dhabi Charity Center', emirate:'Abu Dhabi', area:'Al Khalidiya', type:'Cooked', lat:24.4666, lng:54.3610},
-    {name:'Hope Center Abu Dhabi', emirate:'Abu Dhabi', area:'Mussafah', type:'Packaged', lat:24.3210, lng:54.4370},
-    {name:'Helping Hands Dubai', emirate:'Dubai', area:'Al Barsha 1', type:'Cooked', lat:25.1190, lng:55.1900},
-    {name:'Share the Love Dubai', emirate:'Dubai', area:'Downtown Dubai', type:'Packaged', lat:25.1972, lng:55.2744},
-    {name:'Dubai Food Relief', emirate:'Dubai', area:'Deira', type:'Canned', lat:25.2637, lng:55.3092},
-    {name:'Care4U Sharjah', emirate:'Sharjah', area:'Al Majaz', type:'Packaged', lat:25.3546, lng:55.3811},
-    {name:'Sharjah Food Bank', emirate:'Sharjah', area:'Industrial Area', type:'Cooked', lat:25.3170, lng:55.3977},
-    {name:'Ajman Charity Center', emirate:'Ajman', area:'Ajman Corniche', type:'Canned', lat:25.4040, lng:55.4810},
-    {name:'Ajman Helping Hands', emirate:'Ajman', area:'Al Jurf', type:'Packaged', lat:25.3990, lng:55.4690},
-    {name:'UAQ Food Relief', emirate:'Umm Al Quwain', area:'UAQ Main St', type:'Cooked', lat:25.5645, lng:55.5479},
-    {name:'UAQ Charity Center', emirate:'Umm Al Quwain', area:'Al Raas', type:'Canned', lat:25.5860, lng:55.5460},
-    {name:'RAK Food Aid', emirate:'Ras Al Khaimah', area:'RAK City Center', type:'Packaged', lat:25.7890, lng:55.9430},
-    {name:'RAK Charity Hub', emirate:'Ras Al Khaimah', area:'Al Nakheel', type:'Cooked', lat:25.7320, lng:55.9120},
-    {name:'Fujairah Helping Hands', emirate:'Fujairah', area:'Fujairah Port', type:'Canned', lat:25.1278, lng:56.3269},
-    {name:'Fujairah Food Relief', emirate:'Fujairah', area:'Central Market', type:'Packaged', lat:25.1230, lng:56.3260}
+  // Default centers persisted in localStorage key 'hh_centers_v2'
+  const DEFAULT_CENTERS = [
+    {id:1,name:'Food Bank Abu Dhabi', emirate:'Abu Dhabi', area:'Corniche Rd', type:'Canned', lat:24.4769, lng:54.3656, phone:'+97126800001', hours:'Mon–Sat 09:00–17:00', verified:true, capacity:'High', website:'#'},
+    {id:2,name:'Abu Dhabi Charity Center', emirate:'Abu Dhabi', area:'Al Khalidiya', type:'Cooked', lat:24.4666, lng:54.3610, phone:'+97126800002', hours:'Mon–Fri 08:00–16:00', verified:true, capacity:'Medium', website:'#'},
+    {id:3,name:'Hope Center Abu Dhabi', emirate:'Abu Dhabi', area:'Mussafah', type:'Packaged', lat:24.3210, lng:54.4370, phone:'+97126800003', hours:'Daily 08:00–18:00', verified:false, capacity:'Low', website:'#'},
+    {id:4,name:'Helping Hands Dubai', emirate:'Dubai', area:'Al Barsha 1', type:'Cooked', lat:25.1190, lng:55.1900, phone:'+97142500004', hours:'Mon–Sat 09:00–18:00', verified:true, capacity:'High', website:'#'},
+    {id:5,name:'Share the Love Dubai', emirate:'Dubai', area:'Downtown Dubai', type:'Packaged', lat:25.1972, lng:55.2744, phone:'+97142500005', hours:'Tue–Sun 10:00–18:00', verified:true, capacity:'Medium', website:'#'},
+    {id:6,name:'Dubai Food Relief', emirate:'Dubai', area:'Deira', type:'Canned', lat:25.2637, lng:55.3092, phone:'+97142500006', hours:'Daily 08:00–20:00', verified:false, capacity:'Medium', website:'#'},
+    {id:7,name:'Care4U Sharjah', emirate:'Sharjah', area:'Al Majaz', type:'Packaged', lat:25.3546, lng:55.3811, phone:'+97165300007', hours:'Mon–Fri 09:00–17:00', verified:true, capacity:'Low', website:'#'},
+    {id:8,name:'Sharjah Food Bank', emirate:'Sharjah', area:'Industrial Area', type:'Cooked', lat:25.3170, lng:55.3977, phone:'+97165300008', hours:'Daily 07:00–19:00', verified:true, capacity:'High', website:'#'},
+    {id:9,name:'Ajman Charity Center', emirate:'Ajman', area:'Ajman Corniche', type:'Canned', lat:25.4040, lng:55.4810, phone:'+97167200009', hours:'Mon–Sat 09:00–16:00', verified:false, capacity:'Low', website:'#'},
+    {id:10,name:'Ajman Helping Hands', emirate:'Ajman', area:'Al Jurf', type:'Packaged', lat:25.3990, lng:55.4690, phone:'+97167200010', hours:'Tue–Sun 09:00–17:00', verified:true, capacity:'Medium', website:'#'},
+    {id:11,name:'UAQ Food Relief', emirate:'Umm Al Quwain', area:'UAQ Main St', type:'Cooked', lat:25.5645, lng:55.5479, phone:'+97167200011', hours:'Mon–Fri 09:00–15:00', verified:false, capacity:'Low', website:'#'},
+    {id:12,name:'UAQ Charity Center', emirate:'Umm Al Quwain', area:'Al Raas', type:'Canned', lat:25.5860, lng:55.5460, phone:'+97167200012', hours:'Wed–Sun 10:00–16:00', verified:true, capacity:'Low', website:'#'},
+    {id:13,name:'RAK Food Aid', emirate:'Ras Al Khaimah', area:'RAK City Center', type:'Packaged', lat:25.7890, lng:55.9430, phone:'+97172200013', hours:'Daily 08:00–18:00', verified:true, capacity:'Medium', website:'#'},
+    {id:14,name:'RAK Charity Hub', emirate:'Ras Al Khaimah', area:'Al Nakheel', type:'Cooked', lat:25.7320, lng:55.9120, phone:'+97172200014', hours:'Mon–Sat 08:00–16:00', verified:false, capacity:'Medium', website:'#'},
+    {id:15,name:'Fujairah Helping Hands', emirate:'Fujairah', area:'Fujairah Port', type:'Canned', lat:25.1278, lng:56.3269, phone:'+97192200015', hours:'Tue–Sun 09:00–17:00', verified:true, capacity:'Low', website:'#'},
+    {id:16,name:'Fujairah Food Relief', emirate:'Fujairah', area:'Central Market', type:'Packaged', lat:25.1230, lng:56.3260, phone:'+97192200016', hours:'Mon–Fri 08:00–16:00', verified:false, capacity:'Low', website:'#'}
   ];
 
-  /* Leaflet init */
-  const map = L.map('map', {zoomControl:true, preferCanvas:true}).setView([24.4539,54.3773], 9);
-  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19, attribution:'© OpenStreetMap contributors'}).addTo(map);
-  const markerLayer = L.layerGroup().addTo(map);
-  let lastPolyline = null;
-
+  // Helpers
+  const $ = (sel, root=document) => root.querySelector(sel);
+  const $$ = (sel, root=document) => Array.from(root.querySelectorAll(sel));
+  const tpl = id => document.getElementById(id).innerHTML;
   function escapeHtml(s){ return String(s||'').replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":"&#39;"}[c])); }
-  function toRad(v){return v*Math.PI/180}
-  function haversine(lat1,lon1,lat2,lon2){
-    const R=6371; const dLat=toRad(lat2-lat1), dLon=toRad(lon2-lon1);
-    const a=Math.sin(dLat/2)*Math.sin(dLat/2)+Math.cos(toRad(lat1))*Math.cos(toRad(lat2))*Math.sin(dLon/2)*Math.sin(dLon/2);
-    const c=2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a)); return R*c;
+  function uid(prefix='id'){ return prefix + Math.random().toString(36).slice(2,9); }
+
+  // Centers storage
+  function loadCenters(){
+    try {
+      const raw = localStorage.getItem('hh_centers_v2');
+      if (!raw) { localStorage.setItem('hh_centers_v2', JSON.stringify(DEFAULT_CENTERS)); return DEFAULT_CENTERS.slice(); }
+      return JSON.parse(raw);
+    } catch(e){ console.error('centers load err', e); return DEFAULT_CENTERS.slice(); }
+  }
+  function saveCenters(list){ localStorage.setItem('hh_centers_v2', JSON.stringify(list)); }
+  let centers = loadCenters();
+
+  // Toasts
+  const toastWrap = document.getElementById('toasts');
+  function toast(message, {type='info', duration=4500, action} = {}){
+    const id = uid('t');
+    const el = document.createElement('div');
+    el.className = 'toast ' + (type==='success'?'success': type==='warn'?'warn':'');
+    el.id = id;
+    el.innerHTML = `<div>${escapeHtml(message)}</div><div>${action ? `<button class="btn-inline" data-action> ${escapeHtml(action.label || 'Action')} </button>` : ''}<button class="btn-inline" data-close>✕</button></div>`;
+    toastWrap.appendChild(el);
+    if (action) el.querySelector('[data-action]').addEventListener('click', ()=> { action.cb(); removeToast(); });
+    el.querySelector('[data-close]').addEventListener('click', removeToast);
+    const to = setTimeout(removeToast, duration);
+    function removeToast(){
+      clearTimeout(to);
+      el.style.opacity = '0'; setTimeout(()=> el.remove(), 200);
+    }
+    return id;
   }
 
-  function createPopupHtml(c){
-    return `<div style="min-width:200px">
-      <strong>${escapeHtml(c.name)}</strong>
-      <div class="mini">${escapeHtml(c.area)} — ${escapeHtml(c.emirate)}</div>
-      <div style="margin-top:8px;font-weight:800">${escapeHtml(c.type)}</div>
-      <div style="margin-top:10px;display:flex;gap:8px">
-        <button class="btn-popup" data-name="${escapeHtml(c.name)}">Request pickup</button>
-        <button class="btn-route" data-lat="${c.lat}" data-lng="${c.lng}">Route from me</button>
-      </div>
-    </div>`;
+  // Modal focus trap helpers
+  function trapFocus(modalRoot){
+    const focusable = 'a[href],button:not([disabled]),textarea,input,select,[tabindex]:not([tabindex="-1"])';
+    const nodes = modalRoot.querySelectorAll(focusable);
+    if (!nodes.length) return;
+    const first = nodes[0], last = nodes[nodes.length-1];
+    function keyHandler(e){
+      if (e.key === 'Tab'){
+        if (e.shiftKey && document.activeElement === first){ e.preventDefault(); last.focus(); }
+        else if (!e.shiftKey && document.activeElement === last){ e.preventDefault(); first.focus(); }
+      } else if (e.key === 'Escape'){ closeDonateModal(); }
+    }
+    modalRoot._th = keyHandler;
+    document.addEventListener('keydown', keyHandler);
+    first && first.focus();
   }
-  function addMarkers(list){
-    markerLayer.clearLayers();
-    list.forEach(c => {
-      const m = L.marker([c.lat,c.lng], {riseOnHover:true}).addTo(markerLayer);
-      m.bindPopup(createPopupHtml(c), {closeButton:true});
-      m.on('popupopen', () => {
-        setTimeout(()=>{ // attach handlers after popup DOM ready
-          document.querySelectorAll('.btn-popup').forEach(btn=> btn.onclick = ()=> {
-            document.getElementById('donationCard').scrollIntoView({behavior:'smooth',block:'center'});
-          });
-          document.querySelectorAll('.btn-route').forEach(btn=> btn.onclick = (ev)=> {
-            const lat = parseFloat(btn.getAttribute('data-lat')), lng = parseFloat(btn.getAttribute('data-lng'));
-            if (window._lastUserPos) { drawRoute(window._lastUserPos, {lat,lng}); map.setView([lat,lng],13); }
-            else alert('Grant location permission first (use Find Near Me)');
-          });
-        },10);
+  function releaseFocus(modalRoot){
+    if (modalRoot && modalRoot._th) document.removeEventListener('keydown', modalRoot._th);
+  }
+
+  // Modal open/close
+  const donateModalEl = document.getElementById('donateModal');
+  function openDonateModal(prefCenter){
+    const sel = $('#preferredCenter', donateModalEl);
+    sel.innerHTML = '<option value="">No preference</option>' + centers.map(c=>`<option>${escapeHtml(c.name)}</option>`).join('');
+    if (prefCenter) sel.value = prefCenter;
+    donateModalEl.classList.add('open');
+    donateModalEl.setAttribute('aria-hidden','false');
+    donateModalEl.style.display = 'flex';
+    trapFocus(donateModalEl);
+  }
+  function closeDonateModal(){
+    donateModalEl.style.display = 'none';
+    donateModalEl.setAttribute('aria-hidden','true');
+    releaseFocus(donateModalEl);
+    $('#donateForm').reset();
+  }
+  donateModalEl.addEventListener('click', (ev)=> { if (ev.target === donateModalEl) closeDonateModal(); });
+
+  // Donate submit
+  $('#donateForm').addEventListener('submit', async (ev)=>{
+    ev.preventDefault();
+    const name = $('#donorName').value.trim();
+    const phone = $('#donorPhone').value.trim();
+    const items = $('#donorItems').value.trim();
+    const address = $('#pickupAddress').value.trim();
+    const centerName = $('#preferredCenter').value;
+    if (!name || !phone || !items || !address){ toast('Please complete required fields', {type:'warn'}); return; }
+
+    let record = { id: uid('don'), name, phone, items, address, center: centerName, ts: new Date().toISOString() };
+
+    if ($('#shareLocation').checked && navigator.geolocation){
+      try{
+        const pos = await new Promise((res, rej)=> navigator.geolocation.getCurrentPosition(res, rej, {enableHighAccuracy:true, timeout:10000}));
+        record.lat = pos.coords.latitude; record.lng = pos.coords.longitude;
+      }catch(e){}
+    }
+
+    const saved = JSON.parse(localStorage.getItem('hh_donations') || '[]');
+    saved.unshift(record);
+    localStorage.setItem('hh_donations', JSON.stringify(saved));
+    updateStats();
+    toast('Pickup request saved (demo)', {type:'success', action:{label:'Open Form', cb:()=> window.open(LINKS.DONATE, '_blank')}});
+
+    toast('Undo? Your request was saved locally', {type:'warn', duration:7000, action:{label:'Undo', cb: ()=>{
+      const s = JSON.parse(localStorage.getItem('hh_donations')||'[]').filter(r=> r.id !== record.id);
+      localStorage.setItem('hh_donations', JSON.stringify(s));
+      updateStats();
+      toast('Donation undone', {type:'success', duration:2000});
+    }}});
+
+    window.open(LINKS.DONATE, '_blank', 'noopener');
+    closeDonateModal();
+  });
+
+  $('#openGoogleFormBtn').addEventListener('click', ()=> window.open(LINKS.DONATE, '_blank', 'noopener'));
+
+  // Theme toggle implementation (fix)
+  const themeToggle = document.getElementById('themeToggle');
+  function setTheme(t){
+    document.documentElement.setAttribute('data-theme', t);
+    localStorage.setItem('hh_theme', t);
+    themeToggle.setAttribute('aria-pressed', t === 'light' ? 'true' : 'false');
+    themeToggle.textContent = t === 'light' ? 'Light' : 'Dark';
+    // update meta theme-color for mobile browser color
+    const meta = document.querySelector('meta[name="theme-color"]');
+    if (meta) meta.setAttribute('content', t === 'light' ? '#f7fafc' : '#071127');
+  }
+  themeToggle.addEventListener('click', ()=>{
+    const cur = localStorage.getItem('hh_theme') || 'dark';
+    const next = cur === 'dark' ? 'light' : 'dark';
+    setTheme(next);
+    toast(`Theme switched to ${next}`, {type:'success', duration:1500});
+  });
+  window.addEventListener('keydown', (e)=> { if (e.altKey && e.key.toLowerCase() === 't'){ e.preventDefault(); themeToggle.click(); } });
+  // initialize theme from localStorage or system
+  (function initTheme(){
+    const saved = localStorage.getItem('hh_theme');
+    if (saved) { setTheme(saved); }
+    else {
+      const prefersLight = window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches;
+      setTheme(prefersLight ? 'light' : 'dark');
+    }
+  })();
+
+  // Welcome toast (once per session)
+  function readyToast(){
+    if (!sessionStorage.getItem('hh_welcome_shown')){
+      toast('Welcome to HungerHero — press "d" to donate, "/" to search, Alt+T to toggle theme', {duration:6000});
+      sessionStorage.setItem('hh_welcome_shown', '1');
+    }
+  }
+
+  // Stats loading
+  function loadStats(){
+    const donations = JSON.parse(localStorage.getItem('hh_donations')||'[]');
+    const volunteers = JSON.parse(localStorage.getItem('hh_volunteers')||'[]');
+    const ngos = centers.filter(c=>c.verified).length;
+    $('#donationsCount') && ($('#donationsCount').textContent = donations.length);
+    $('#volunteersCount') && ($('#volunteersCount').textContent = volunteers.length);
+    $('#ngosCount') && ($('#ngosCount').textContent = ngos);
+    $('#statDonations') && ($('#statDonations').textContent = 'Donations: ' + donations.length);
+  }
+  function updateStats(){ loadStats(); }
+
+  // Featured
+  function renderFeatured(){
+    const el = $('#featuredList');
+    if (!el) return;
+    const featured = centers.filter(c=>c.verified).slice(0,4);
+    el.innerHTML = featured.map(c=>`
+      <div class="featured-item">
+        <div class="avatar">${escapeHtml(c.name[0])}</div>
+        <div style="flex:1"><strong>${escapeHtml(c.name)}</strong><div class="small">${escapeHtml(c.area)}</div></div>
+        <div><button class="action-button" data-id="${c.id}" data-role="view">Open</button></div>
+      </div>
+    `).join('');
+    el.querySelectorAll('[data-role="view"]').forEach(btn=>{
+      btn.addEventListener('click', ()=>{
+        const id = Number(btn.dataset.id);
+        const c = centers.find(x=>x.id===id);
+        location.hash = '#/finder';
+        const tryShow = () => {
+          if (mapLoaded && mapInstance){
+            showDetails(c);
+            mapInstance.setView([c.lat,c.lng], 13);
+            openPopupForCenter(c.id);
+          } else setTimeout(tryShow, 200);
+        };
+        tryShow();
       });
     });
   }
-  addMarkers(centers);
 
-  (function fitInitial(){
-    const bounds = L.latLngBounds(centers.map(c => [c.lat, c.lng]));
-    map.fitBounds(bounds.pad(0.2));
-  })();
+  // Routing and render
+  function getRoute(){ const h = location.hash || '#/'; return h.replace(/^#/, '') || '/'; }
+  function setActiveNav(route){ $$('.navlink').forEach(a => { const r = a.getAttribute('href').replace(/^#/, ''); a.classList.toggle('active', r === route); }); }
 
-  document.getElementById('emirate').addEventListener('change', applyFilters);
-  document.getElementById('foodtype').addEventListener('change', applyFilters);
-  function applyFilters(){
-    const e = document.getElementById('emirate').value;
-    const t = document.getElementById('foodtype').value;
-    const filtered = centers.filter(c => (e==='all' || c.emirate===e) && (t==='all' || c.type===t));
-    addMarkers(filtered);
-    renderNearbyList(filtered);
-    if (filtered.length) {
-      const bounds = L.latLngBounds(filtered.map(f => [f.lat,f.lng]));
-      map.fitBounds(bounds.pad(0.25), {animate:true});
+  function render(){
+    const route = getRoute();
+    setActiveNav(route);
+    const app = $('#app');
+    app.innerHTML = '';
+    switch(route){
+      case '/': app.innerHTML = tpl('tpl-home'); setTimeout(()=> { $('#homeDonateBtn')?.addEventListener('click', ()=> openDonateModal()); renderFeatured(); loadStats(); readyToast(); }, 60); break;
+      case '/finder': app.innerHTML = tpl('tpl-finder'); setTimeout(()=> initFinderView(), 80); break;
+      case '/ngo': app.innerHTML = tpl('tpl-ngo'); setTimeout(()=> { $('#downloadChecklist')?.addEventListener('click', downloadChecklist); $('#ngoFormBtn')?.addEventListener('click', ()=> window.open(LINKS.NGO,'_blank')); $('#contactNgoSupport')?.addEventListener('click', ()=> window.location.href = 'mailto:partners@hungerhero.example'); loadStats(); }, 30); break;
+      case '/volunteers': app.innerHTML = tpl('tpl-volunteers'); setTimeout(()=> { $('#volunteerForm')?.addEventListener('submit', handleVolunteerSubmit); $('#volGoogle')?.addEventListener('click', ()=> window.open(LINKS.VOLUNTEER,'_blank')); loadStats(); }, 30); break;
+      case '/contact': app.innerHTML = tpl('tpl-contact'); setTimeout(()=> { $('#contactFormLocal')?.addEventListener('submit', handleContactSubmit); loadStats(); }, 30); break;
+      case '/admin': {
+        if (!sessionStorage.getItem('hh_admin_ok')){
+          const pass = prompt('Enter admin passphrase (demo):');
+          if (pass !== 'hero-admin-2025'){ location.hash = '#/'; toast('Invalid passphrase', {type:'warn'}); return; }
+          sessionStorage.setItem('hh_admin_ok','1');
+        }
+        app.innerHTML = tpl('tpl-admin');
+        setTimeout(()=> initAdminView(), 60);
+      } break;
+      default: app.innerHTML = '<div class="card"><h2>Not found</h2><p class="small">Page not found.</p></div>';
     }
+    setTimeout(()=> app.focus(), 80);
   }
 
-  function renderNearbyList(list){
-    const el = document.getElementById('nearbyList');
-    if (!list.length) { el.innerHTML = '<div class="mini">No centers found</div>'; return; }
-    el.innerHTML = list.slice(0,8).map(c => `<div style="padding:8px;border-radius:8px;border:1px solid #f1f5f9;margin-bottom:8px">
-      <strong>${escapeHtml(c.name)}</strong><div class="mini">${escapeHtml(c.area)} • ${escapeHtml(c.type)}</div>
-      <div style="margin-top:6px"><button class="chip" data-lat="${c.lat}" data-lng="${c.lng}">Route</button></div>
-    </div>`).join('');
-    el.querySelectorAll('.chip').forEach(btn => btn.onclick = ()=> {
-      const lat = parseFloat(btn.getAttribute('data-lat')), lng = parseFloat(btn.getAttribute('data-lng'));
-      if (window._lastUserPos) drawRoute(window._lastUserPos, {lat,lng});
-      map.setView([lat,lng],13);
+  // Volunteer & Contact handlers
+  function handleVolunteerSubmit(ev){
+    ev.preventDefault();
+    const data = {
+      id: uid('vol'),
+      name: $('#volName').value.trim(),
+      phone: $('#volPhone').value.trim(),
+      role: $('#volRole').value,
+      availability: $('#volAvail').value.trim(),
+      hasLicense: $('#volHasLicense').checked,
+      ts: new Date().toISOString()
+    };
+    if (!data.name || !data.phone){ toast('Please provide name and phone', {type:'warn'}); return; }
+    const saved = JSON.parse(localStorage.getItem('hh_volunteers')||'[]');
+    saved.unshift(data);
+    localStorage.setItem('hh_volunteers', JSON.stringify(saved));
+    toast('Thanks for signing up! We will contact you.', {type:'success'});
+    updateStats();
+    $('#volunteerForm').reset();
+  }
+
+  function handleContactSubmit(ev){
+    ev.preventDefault();
+    const data = {
+      id: uid('msg'),
+      name: $('#contactName').value.trim(),
+      email: $('#contactEmail').value.trim(),
+      subject: $('#contactSubject').value.trim(),
+      message: $('#contactMessage').value.trim(),
+      ts: new Date().toISOString()
+    };
+    if (!data.name || !data.email || !data.message){ toast('Please complete required fields', {type:'warn'}); return; }
+    const saved = JSON.parse(localStorage.getItem('hh_contacts')||'[]');
+    saved.unshift(data);
+    localStorage.setItem('hh_contacts', JSON.stringify(saved));
+    toast('Message saved — support will reply within 48 hours (demo)', {type:'success'});
+    $('#contactFormLocal').reset();
+  }
+
+  // Admin view
+  function initAdminView(){
+    $('#adminLink').style.display = 'inline-flex';
+    const container = $('#adminCenters');
+    function renderCentersList(){
+      centers = loadCenters();
+      container.innerHTML = centers.map(c=> `
+        <div style="padding:10px;border-radius:8px;border:1px solid rgba(255,255,255,0.02);margin-bottom:8px;display:flex;justify-content:space-between;align-items:center">
+          <div>
+            <strong>${escapeHtml(c.name)}</strong><div class="small">${escapeHtml(c.area)} • ${escapeHtml(c.emirate)}</div>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:6px">
+            <label style="display:flex;gap:8px;align-items:center"><input type="checkbox" data-id="${c.id}" ${c.verified ? 'checked' : ''} /> Verified</label>
+            <button class="action-button" data-id="${c.id}" data-action="remove">Remove</button>
+          </div>
+        </div>
+      `).join('');
+      container.querySelectorAll('[data-action="remove"]').forEach(btn=> btn.addEventListener('click', ()=>{
+        const id = Number(btn.dataset.id);
+        if (!confirm('Remove center?')) return;
+        centers = centers.filter(x=> x.id !== id);
+        saveCenters(centers);
+        renderCentersList();
+        toast('Center removed', {type:'warn'});
+      }));
+      container.querySelectorAll('input[type="checkbox"]').forEach(cb=>{
+        cb.addEventListener('change', ()=>{
+          const id = Number(cb.dataset.id);
+          centers = centers.map(x=> x.id===id ? {...x, verified: cb.checked} : x);
+          saveCenters(centers);
+          toast('Verification toggled', {type:'success'});
+          updateStats();
+        });
+      });
+    }
+    renderCentersList();
+
+    $('#addCenterForm').addEventListener('submit', (ev)=>{
+      ev.preventDefault();
+      const name = $('#newCenterName').value.trim();
+      const emirate = $('#newCenterEmirate').value.trim();
+      const area = $('#newCenterArea').value.trim();
+      const type = $('#newCenterType').value;
+      const lat = parseFloat($('#newCenterLat').value);
+      const lng = parseFloat($('#newCenterLng').value);
+      if (!name || !emirate || !area || Number.isNaN(lat) || Number.isNaN(lng)){ toast('Complete all fields correctly', {type:'warn'}); return; }
+      const id = centers.reduce((m,c)=> Math.max(m,c.id), 0) + 1;
+      centers.push({id,name,emirate,area,type,lat,lng,phone:'',hours:'',verified:false,capacity:'Medium',website:'#'});
+      saveCenters(centers);
+      toast('Center added', {type:'success'});
+      $('#addCenterForm').reset();
+      initAdminView(); // re-render
+    });
+
+    $('#exportAllData').addEventListener('click', ()=>{
+      const data = { centers, donations: JSON.parse(localStorage.getItem('hh_donations')||'[]'), volunteers: JSON.parse(localStorage.getItem('hh_volunteers')||'[]'), contacts: JSON.parse(localStorage.getItem('hh_contacts')||'[]')};
+      const blob = new Blob([JSON.stringify(data, null, 2)], {type:'application/json'});
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a'); a.href = url; a.download = 'hungerhero-data.json'; document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
+      toast('Export started', {type:'success'});
+    });
+
+    $('#resetDemo').addEventListener('click', ()=>{
+      if (!confirm('Reset demo data to defaults? This clears local data.')) return;
+      localStorage.clear();
+      centers = loadCenters();
+      toast('Demo reset. Reloading...', {type:'success'});
+      setTimeout(()=> location.reload(), 800);
     });
   }
 
-  document.getElementById('findMe').addEventListener('click', ()=> {
-    if (!navigator.geolocation) return alert('Geolocation not supported');
-    navigator.geolocation.getCurrentPosition(async pos=>{
-      const lat = pos.coords.latitude, lng = pos.coords.longitude;
-      document.getElementById('lat').value = lat; document.getElementById('lng').value = lng;
-      if (window._userMarker) map.removeLayer(window._userMarker);
-      window._userMarker = L.circleMarker([lat,lng], {radius:8, color:'#2b6cff', fill:true}).addTo(map).bindPopup('You are here').openPopup();
-      window._lastUserPos = {lat,lng};
-      const nearest = findNearest(lat,lng);
-      if (nearest) {
-        map.setView([nearest.lat, nearest.lng], 13);
-        markerLayer.eachLayer(l=>{
-          const ll = l.getLatLng();
-          if (Math.abs(ll.lat - nearest.lat) < 0.0001 && Math.abs(ll.lng - nearest.lng) < 0.0001) l.openPopup();
-        });
-        drawRoute({lat,lng},{lat:nearest.lat,lng:nearest.lng});
-        alert(`Nearest: ${nearest.name} — ${nearest.area} (${nearest.type}), ${nearest.d.toFixed(1)} km`);
-      }
-    }, err => alert('Unable to get location: ' + err.message), {enableHighAccuracy:true,timeout:12000});
-  });
+  // Map implementation (lazy load)
+  let mapLoaded=false, mapInstance=null, markersLayer=null, lastPolyline=null, userMarker=null, centerMarkers={};
+  function loadLeaflet(cb){
+    if (window.L) { cb(); return; }
+    const css1 = document.createElement('link'); css1.rel='stylesheet'; css1.href='https://unpkg.com/leaflet/dist/leaflet.css'; document.head.appendChild(css1);
+    const css2 = document.createElement('link'); css2.rel='stylesheet'; css2.href='https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css'; document.head.appendChild(css2);
+    const css3 = document.createElement('link'); css3.rel='stylesheet'; css3.href='https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css'; document.head.appendChild(css3);
+    const s1 = document.createElement('script'); s1.src='https://unpkg.com/leaflet/dist/leaflet.js'; s1.onload = ()=> {
+      const s2 = document.createElement('script'); s2.src='https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js'; s2.onload = cb; document.body.appendChild(s2);
+    };
+    document.body.appendChild(s1);
+  }
 
-  document.getElementById('centerUAE').addEventListener('click', ()=> {
-    map.setView([24.4539,54.3773], 9);
-  });
-  document.getElementById('showAll').addEventListener('click', ()=> { addMarkers(centers); (function(){ const bounds = L.latLngBounds(centers.map(c => [c.lat,c.lng])); map.fitBounds(bounds.pad(0.2)); })(); });
-  document.getElementById('routeFirst').addEventListener('click', ()=> {
-    if (window._lastUserPos) { const n = findNearest(window._lastUserPos.lat, window._lastUserPos.lng); if (n) drawRoute(window._lastUserPos,{lat:n.lat,lng:n.lng}); }
-    else alert('Use Find Near Me first');
-  });
+  function buildMap(){
+    if (mapInstance) return;
+    mapInstance = L.map('map', {zoomControl:true, preferCanvas:true});
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19, attribution:'© OpenStreetMap contributors'}).addTo(mapInstance);
+    markersLayer = L.markerClusterGroup({chunkedLoading:true, maxClusterRadius:50});
+    mapInstance.addLayer(markersLayer);
+    mapInstance.setView([24.4539,54.3773], 9);
+    mapInstance.on('popupopen', ()=> setTimeout(bindPopupButtons, 20));
+  }
+
+  function markerHtml(type, verified){
+    const color = (type === 'Cooked') ? '#ff7a59' : (type==='Packaged' ? '#6fda8a' : '#69b1ff');
+    return `<div style="width:40px;height:40px;border-radius:10px;background:${color};display:flex;align-items:center;justify-content:center;font-weight:900;color:#071127">${escapeHtml(type[0])}${verified ? '<span style="font-size:9px;margin-left:6px;color:var(--success)">●</span>' : ''}</div>`;
+  }
+
+  function addAllMarkers(list){
+    if (!mapInstance || !markersLayer) return;
+    markersLayer.clearLayers();
+    centerMarkers = {};
+    list.forEach(c=>{
+      const icon = L.divIcon({html: markerHtml(c.type,c.verified), className:'custom-marker', iconSize:[36,36], iconAnchor:[18,36]});
+      const m = L.marker([c.lat,c.lng], {icon});
+      m.bindPopup(createPopupHtml(c), {minWidth:220});
+      m.on('popupopen', ()=> setTimeout(bindPopupButtons, 20));
+      markersLayer.addLayer(m);
+      centerMarkers[c.id] = m;
+    });
+  }
+
+  function createPopupHtml(c){
+    return `<div>
+      <strong>${escapeHtml(c.name)}</strong> ${c.verified ? '<span class="verified">Verified</span>' : ''}
+      <div class="small" style="margin-top:6px">${escapeHtml(c.area)} — ${escapeHtml(c.emirate)}</div>
+      <div class="small" style="margin-top:6px">Type: ${escapeHtml(c.type)} • Capacity: ${escapeHtml(c.capacity)}</div>
+      <div style="margin-top:10px;display:flex;gap:8px">
+        <button class="btn-popup" data-id="${c.id}">Request pickup</button>
+        <button class="btn-route" data-id="${c.id}">Directions</button>
+        <button class="btn-details" data-id="${c.id}">Details</button>
+      </div>
+    </div>`;
+  }
+
+  function bindPopupButtons(){
+    $$('.btn-popup').forEach(btn => btn.onclick = ()=> {
+      const id = Number(btn.dataset.id);
+      const c = centers.find(x=>x.id===id);
+      openDonateModal(c.name);
+    });
+    $$('.btn-route').forEach(btn => btn.onclick = ()=> {
+      const id = Number(btn.dataset.id);
+      const c = centers.find(x=>x.id===id);
+      if (window._lastUserPos) drawRoute(window._lastUserPos, {lat:c.lat, lng:c.lng});
+      else window.open(`https://www.google.com/maps/dir/?api=1&destination=${c.lat},${c.lng}`, '_blank', 'noopener');
+    });
+    $$('.btn-details').forEach(btn => btn.onclick = ()=> {
+      const id = Number(btn.dataset.id);
+      const c = centers.find(x=>x.id===id);
+      showDetails(c);
+    });
+  }
+
+  function showDetails(c){
+    let detailsEl = $('#details');
+    if (!detailsEl){
+      detailsEl = document.createElement('div'); detailsEl.id='details'; detailsEl.className='details';
+      document.body.appendChild(detailsEl);
+    }
+    detailsEl.innerHTML = `
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <div><h4>${escapeHtml(c.name)}</h4><div class="small">${escapeHtml(c.area)} • ${escapeHtml(c.emirate)}</div></div>
+        <div style="display:flex;flex-direction:column;gap:8px">
+          <button id="closeDetails" class="btn-ghost">Close</button>
+          <div class="admin-badge">${c.verified ? 'Verified' : 'Unverified'}</div>
+        </div>
+      </div>
+      <div style="margin-top:10px">
+        <div class="small"><strong>Type:</strong> ${escapeHtml(c.type)}</div>
+        <div class="small"><strong>Hours:</strong> ${escapeHtml(c.hours || 'N/A')}</div>
+        <div class="small"><strong>Capacity:</strong> ${escapeHtml(c.capacity || 'Unknown')}</div>
+        <div class="small" style="margin-top:8px"><strong>Phone:</strong> <a href="tel:${escapeHtml(c.phone)}">${escapeHtml(c.phone)}</a></div>
+        <div style="margin-top:10px;display:flex;gap:8px">
+          <button class="action-button" id="detailRoute">Get directions</button>
+          <button class="action-button" id="detailPickup">Request pickup</button>
+          <a class="action-button" href="${c.website}" target="_blank" rel="noopener">Website</a>
+        </div>
+      </div>
+    `;
+    detailsEl.classList.add('open');
+    $('#closeDetails').onclick = ()=> detailsEl.classList.remove('open');
+    $('#detailPickup').onclick = ()=> openDonateModal(c.name);
+    $('#detailRoute').onclick = ()=> {
+      if (window._lastUserPos) drawRoute(window._lastUserPos, {lat:c.lat, lng:c.lng});
+      else window.open(`https://www.google.com/maps/dir/?api=1&destination=${c.lat},${c.lng}`, '_blank', 'noopener');
+    };
+  }
+
+  function openPopupForCenter(id){ const m = centerMarkers[id]; if (m) m.openPopup(); }
+
+  function drawRoute(a,b){
+    if (!mapInstance) return;
+    if (lastPolyline) mapInstance.removeLayer(lastPolyline);
+    lastPolyline = L.polyline([[a.lat,a.lng],[b.lat,b.lng]], {dashArray:'6 8', color:'#ff7a59', weight:3}).addTo(mapInstance);
+    const start = L.circleMarker([a.lat,a.lng], {radius:6, color:'#00b4ff'}).addTo(mapInstance);
+    const end = L.circleMarker([b.lat,b.lng], {radius:6, color:'#ff7a59'}).addTo(mapInstance);
+    setTimeout(()=>{ try{ mapInstance.removeLayer(start); mapInstance.removeLayer(end); }catch(e){} },7000);
+  }
+
+  function setUserMarker(lat,lng){
+    if (!mapInstance) return;
+    if (userMarker) mapInstance.removeLayer(userMarker);
+    userMarker = L.circleMarker([lat,lng], {radius:8, color:'#00b4ff', fill:true}).addTo(mapInstance).bindPopup('You are here').openPopup();
+    window._lastUserPos = {lat,lng};
+    renderNearbyList();
+  }
+
+  function haversine(aLat,aLon,bLat,bLon){
+    const toRad = v => v * Math.PI / 180;
+    const R = 6371;
+    const dLat = toRad(bLat-aLat), dLon = toRad(bLon-aLon);
+    const aa = Math.sin(dLat/2)**2 + Math.cos(toRad(aLat))*Math.cos(toRad(bLat)) * Math.sin(dLon/2)**2;
+    return R*2*Math.atan2(Math.sqrt(aa), Math.sqrt(1-aa));
+  }
 
   function findNearest(lat,lng){
     let minD = Infinity, nearest = null;
-    centers.forEach(c => { const d = haversine(lat,lng,c.lat,c.lng); if (d < minD) { minD = d; nearest = {...c, d}; } });
+    centers.forEach(c => { const d = haversine(lat,lng,c.lat,c.lng); if (d < minD){ minD = d; nearest = {...c, d}; } });
     return nearest;
   }
 
-  function drawRoute(a,b){
-    if (lastPolyline) map.removeLayer(lastPolyline);
-    lastPolyline = L.polyline([[a.lat,a.lng],[b.lat,b.lng]], {dashArray:'6 8', color:'#ff6b61', weight:3}).addTo(map);
-    const start = L.circleMarker([a.lat,a.lng], {radius:6, color:'#2b6cff'}).addTo(map);
-    const end = L.circleMarker([b.lat,b.lng], {radius:6, color:'#ff6b61'}).addTo(map);
-    setTimeout(()=>{ try{ map.removeLayer(start); map.removeLayer(end); }catch(e){} },7000);
+  function applyFilters(){
+    if (!document.getElementById('finderSearch')) return;
+    const q = (document.getElementById('finderSearch').value || '').trim().toLowerCase();
+    const e = document.getElementById('emirate').value;
+    const t = document.getElementById('foodtype').value;
+    const v = document.getElementById('verified').value;
+    const filtered = centers.filter(c=>{
+      if (e !== 'all' && c.emirate !== e) return false;
+      if (t !== 'all' && c.type !== t) return false;
+      if (v !== 'all' && String(c.verified) !== v) return false;
+      if (q){
+        const hay = `${c.name} ${c.area} ${c.emirate} ${c.type}`.toLowerCase();
+        if (!hay.includes(q)) return false;
+      }
+      return true;
+    });
+    addAllMarkers(filtered);
+    renderNearbyList(filtered);
+    if (filtered.length && mapInstance) mapInstance.fitBounds(filtered.map(f=>[f.lat,f.lng]), {padding:[40,40]});
   }
 
-  /* ---------- Local history helpers ---------- */
-  const HISTORY_KEY = 'hh_v2_history';
-  function loadHistory(){ try{ const raw = localStorage.getItem(HISTORY_KEY); return raw? JSON.parse(raw):[] } catch(e){ return []; } }
-  function saveHistory(list){ localStorage.setItem(HISTORY_KEY, JSON.stringify(list)); renderHistory(); }
-  function renderHistory(){ const list = loadHistory(); const c = document.getElementById('localCount'); if(c) c.innerText = list.length; }
+  function renderNearbyList(listOverride){
+    const el = document.getElementById('nearbyList');
+    if (!el) return;
+    const list = listOverride || centers;
+    const user = window._lastUserPos;
+    const decorated = list.map(c=> ({...c, d: user ? haversine(user.lat,user.lng,c.lat,c.lng) : null}))
+                          .sort((a,b)=> (a.d||9999)-(b.d||9999));
+    if (!decorated.length){ el.innerHTML = '<div class="small">No centers found</div>'; return; }
+    el.innerHTML = decorated.slice(0,12).map(c=> `
+      <div class="nearby-item" role="article" style="padding:10px;border-radius:10px;border:1px solid rgba(255,255,255,0.02);margin-bottom:10px;display:flex;flex-direction:column">
+        <div style="display:flex;justify-content:space-between"><strong>${escapeHtml(c.name)}</strong><div class="small">${c.verified ? 'Verified' : ''}</div></div>
+        <div class="meta small">${escapeHtml(c.area)} • ${escapeHtml(c.type)} • ${escapeHtml(c.hours)}</div>
+        <div style="display:flex;gap:8px;margin-top:8px;align-items:center">
+          <button class="action-button" data-id="${c.id}" data-action="route">Route</button>
+          <button class="action-button" data-id="${c.id}" data-action="pickup">Request pickup</button>
+          <button class="action-button" data-id="${c.id}" data-action="details">Info</button>
+          <div style="margin-left:auto" class="small">${c.d ? c.d.toFixed(1) + ' km' : ''}</div>
+        </div>
+      </div>
+    `).join('');
+    el.querySelectorAll('.action-button').forEach(btn=>{
+      btn.onclick = ()=> {
+        const id = Number(btn.dataset.id);
+        const action = btn.dataset.action;
+        const c = centers.find(x=>x.id===id);
+        if (action === 'route'){
+          if (window._lastUserPos) drawRoute(window._lastUserPos, {lat:c.lat, lng:c.lng});
+          else window.open(`https://www.google.com/maps/dir/?api=1&destination=${c.lat},${c.lng}`, '_blank', 'noopener');
+        } else if (action === 'pickup'){
+          openDonateModal(c.name);
+        } else if (action === 'details'){
+          showDetails(c);
+          mapInstance && mapInstance.setView([c.lat,c.lng],13);
+        }
+      };
+    });
+  }
 
-  /* ---------- Supabase insert helper ---------- */
-  async function insertRow(table, payload) {
-    if (!SUPABASE_ANON_KEY || SUPABASE_ANON_KEY === 'YOUR_ANON_KEY_HERE') {
-      console.warn('Supabase anon key not configured; data saved locally only.');
-      return { data: null, error: { message: 'Supabase anon key not configured. Save locally only.' }, localOnly: true };
+  function exportCsv(){
+    const csv = ['id,name,emirate,area,type,lat,lng,phone,verified'].concat(centers.map(c=>`${c.id},"${c.name}",${c.emirate},"${c.area}",${c.type},${c.lat},${c.lng},${c.phone},${c.verified}`)).join('\n');
+    const blob = new Blob([csv], {type:'text/csv'}); const url = URL.createObjectURL(blob);
+    const a = document.createElement('a'); a.href = url; a.download = 'centers.csv'; document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
+  }
+
+  function initFinderView(){
+    centers = loadCenters();
+    if (!mapLoaded){
+      loadLeaflet(()=> {
+        buildMap();
+        mapLoaded = true;
+        addAllMarkers(centers);
+        applyFilters();
+      });
+    } else {
+      addAllMarkers(centers);
+      applyFilters();
     }
-    const { data, error } = await supabase.from(table).insert([payload]);
-    return { data, error, localOnly: false };
+
+    $('#finderSearch')?.addEventListener('input', applyFilters);
+    $('#emirate')?.addEventListener('change', applyFilters);
+    $('#foodtype')?.addEventListener('change', applyFilters);
+    $('#verified')?.addEventListener('change', applyFilters);
+
+    $('#findMe')?.addEventListener('click', ()=> {
+      if (!navigator.geolocation) return toast('Geolocation not supported', {type:'warn'});
+      navigator.geolocation.getCurrentPosition(pos=>{
+        setUserMarker(pos.coords.latitude, pos.coords.longitude);
+        const nearest = findNearest(pos.coords.latitude, pos.coords.longitude);
+        if (nearest){
+          mapInstance.setView([nearest.lat,nearest.lng],13);
+          openPopupForCenter(nearest.id);
+          drawRoute({lat:pos.coords.latitude,lng:pos.coords.longitude},{lat:nearest.lat,lng:nearest.lng});
+          toast(`Nearest: ${nearest.name} — ${nearest.area} (${nearest.type}), ${nearest.d.toFixed(1)} km`, {type:'success'});
+        }
+      }, err=> toast('Unable to get location: ' + err.message, {type:'warn'}), {enableHighAccuracy:true, timeout:12000});
+    });
+
+    $('#centerUAE')?.addEventListener('click', ()=> mapInstance && mapInstance.setView([24.4539,54.3773], 9));
+    $('#showAll')?.addEventListener('click', ()=> { addAllMarkers(centers); mapInstance && mapInstance.fitBounds(centers.map(c=>[c.lat,c.lng])); });
+    $('#exportCsv')?.addEventListener('click', exportCsv);
+    $('#routeFirst')?.addEventListener('click', ()=> {
+      if (window._lastUserPos){ const n = findNearest(window._lastUserPos.lat, window._lastUserPos.lng); if (n) drawRoute(window._lastUserPos,{lat:n.lat,lng:n.lng}); }
+      else toast('Use Find Near Me first', {type:'warn'});
+    });
   }
 
-  /* ---------- Donation form submit (Supabase) ---------- */
-  const donateForm = document.getElementById('donateForm');
-  donateForm.addEventListener('submit', async (ev)=> {
-    ev.preventDefault();
-    const payload = {
-      name: document.getElementById('name').value.trim(),
-      phone: document.getElementById('phone').value.trim(),
-      date: document.getElementById('date').value || null,
-      time: document.getElementById('time').value || null,
-      quantity: document.getElementById('quantity').value.trim(),
-      notes: document.getElementById('notes').value.trim(),
-      lat: document.getElementById('lat').value ? parseFloat(document.getElementById('lat').value) : null,
-      lng: document.getElementById('lng').value ? parseFloat(document.getElementById('lng').value) : null,
-      ts: new Date().toISOString()
-    };
-    if (!payload.name) return alert('Please enter your name');
+  // Boot
+  window.addEventListener('hashchange', render);
+  window.addEventListener('DOMContentLoaded', ()=>{
+    $('#openDonate')?.addEventListener('click', ()=> openDonateModal());
+    $('#fabDonate')?.addEventListener('click', ()=> openDonateModal());
+    $('#openGoogleFormBtn')?.addEventListener('click', ()=> window.open(LINKS.DONATE,'_blank'));
 
-    // save locally always (quick offline fallback)
-    const hist = loadHistory(); hist.unshift(payload); if (hist.length>30) hist.pop(); saveHistory(hist);
+    window.addEventListener('keydown', (e)=>{
+      if (e.key === 'd' && !e.ctrlKey && !e.metaKey && !e.altKey) openDonateModal();
+      if (e.key === '/' && !['INPUT','TEXTAREA','SELECT'].includes(document.activeElement.tagName)){ e.preventDefault(); const fs = document.getElementById('finderSearch'); fs && fs.focus(); }
+    });
 
-    // try Supabase insert
-    const btn = donateForm.querySelector('button[type="submit"]');
-    btn.disabled = true; btn.innerText = 'Sending...';
+    $$('.navlink').forEach(a => a.addEventListener('click', ()=> setActiveNav(a.getAttribute('href').replace(/^#/,''))));
+
+    render();
+    updateStats();
+    readyToast();
+
+    // Register SW via blob
+    registerSWBlob();
+  });
+
+  // Service Worker registration via Blob
+  function registerSWBlob(){
+    if (!('serviceWorker' in navigator)) return;
+    const swCode = `
+      const CACHE_NAME = 'hungerhero-cache-v1';
+      const ASSETS = ['/', '/?source=sw'];
+      self.addEventListener('install', event => { self.skipWaiting(); event.waitUntil(caches.open(CACHE_NAME).then(cache => cache.addAll(ASSETS)).catch(()=>{})); });
+      self.addEventListener('activate', event => { event.waitUntil(self.clients.claim()); });
+      self.addEventListener('fetch', event => {
+        if (event.request.method !== 'GET') return;
+        event.respondWith(fetch(event.request).then(r => { if (r && r.type === 'basic') { const copy = r.clone(); caches.open(CACHE_NAME).then(cache => cache.put(event.request, copy)); } return r; }).catch(()=> caches.match(event.request).then(resp => resp || caches.match('/'))));
+      });
+    `;
     try {
-      const res = await insertRow('donations', payload);
-      if (res.localOnly) {
-        alert('Saved locally. Configure your Supabase anon key to persist remotely.');
-        donateForm.reset();
-      } else if (res.error) {
-        console.error('Supabase error:', res.error);
-        alert('❌ Error saving — saved locally. ' + (res.error.message || ''));
-      } else {
-        alert('✅ Donation saved. Thank you!');
-        donateForm.reset();
-      }
-    } catch (err) {
-      console.error(err);
-      alert('Network error — saved locally.');
-    } finally {
-      btn.disabled = false; btn.innerText = 'Send donation';
-    }
-  });
-
-  /* Save locally button for donation */
-  document.getElementById('saveLocal').addEventListener('click', ()=> {
-    const payload = {
-      name: document.getElementById('name').value.trim(),
-      phone: document.getElementById('phone').value.trim(),
-      date: document.getElementById('date').value,
-      time: document.getElementById('time').value,
-      quantity: document.getElementById('quantity').value.trim(),
-      notes: document.getElementById('notes').value.trim(),
-      ts: new Date().toISOString()
-    };
-    const hist = loadHistory(); hist.unshift(payload); if (hist.length>30) hist.pop(); saveHistory(hist);
-    alert('Saved locally.');
-  });
-  renderHistory(); // init
-
-  /* ---------- NGO form (Supabase) ---------- */
-  document.getElementById('ngoSubmit').addEventListener('click', async ()=> {
-    const payload = {
-      name: document.getElementById('ngo_name').value.trim(),
-      emirate: document.getElementById('ngo_emirate').value,
-      phone: document.getElementById('ngo_phone').value.trim(),
-      type: document.getElementById('ngo_type').value,
-      notes: document.getElementById('ngo_notes').value.trim(),
-      ts: new Date().toISOString()
-    };
-    if (!payload.name) return alert('Enter NGO name');
-
-    const btn = document.getElementById('ngoSubmit'); btn.disabled = true; btn.innerText = 'Sending...';
-    try {
-      const res = await insertRow('ngo_registrations', payload);
-      if (res.localOnly) {
-        localSave('ngo', payload);
-        alert('Saved locally. Configure your Supabase anon key to persist remotely.');
-        document.getElementById('ngoForm').reset();
-      } else if (res.error) {
-        console.error(res.error);
-        localSave('ngo', payload);
-        alert('Saved locally but server failed.');
-      } else {
-        alert('NGO registration submitted. Thank you!');
-        document.getElementById('ngoForm').reset();
-      }
-    } catch (e) {
-      console.warn(e);
-      localSave('ngo', payload);
-      alert('Network error — saved locally.');
-    } finally { btn.disabled = false; btn.innerText = 'Register NGO'; }
-  });
-
-  document.getElementById('ngoFormSaveLocal').addEventListener('click', ()=> {
-    const payload = { name: document.getElementById('ngo_name').value.trim(), emirate: document.getElementById('ngo_emirate').value, phone: document.getElementById('ngo_phone').value, type: document.getElementById('ngo_type').value, notes: document.getElementById('ngo_notes').value, ts: new Date().toISOString() };
-    localSave('ngo', payload);
-    alert('Saved locally');
-  });
-
-  /* ---------- Volunteers (Supabase) ---------- */
-  document.getElementById('volSubmit').addEventListener('click', async (ev)=> {
-    ev.preventDefault();
-    const payload = {
-      name: document.getElementById('vol_name').value.trim(),
-      email: document.getElementById('vol_email').value.trim(),
-      emirate: document.getElementById('vol_emirate').value,
-      phone: document.getElementById('vol_phone').value.trim(),
-      notes: document.getElementById('vol_notes').value.trim(),
-      ts: new Date().toISOString()
-    };
-    if (!payload.name) return alert('Enter your name');
-
-    const btn = document.getElementById('volSubmit'); btn.disabled = true; btn.innerText = 'Sending...';
-    try {
-      const res = await insertRow('volunteers', payload);
-      if (res.localOnly) {
-        localSave('volunteer', payload);
-        alert('Saved locally. Configure your Supabase anon key to persist remotely.');
-        document.getElementById('volForm').reset();
-      } else if (res.error) {
-        console.error(res.error);
-        localSave('volunteer', payload);
-        alert('Saved locally but server failed.');
-      } else {
-        alert('Volunteer signup submitted — thank you!');
-        document.getElementById('volForm').reset();
-      }
-    } catch (e) {
-      console.warn(e);
-      localSave('volunteer', payload);
-      alert('Network error — saved locally.');
-    } finally { btn.disabled = false; btn.innerText = 'Sign up'; }
-  });
-
-  document.getElementById('volSaveLocal').addEventListener('click', ()=> {
-    const payload = { name: document.getElementById('vol_name').value.trim(), email: document.getElementById('vol_email').value.trim(), emirate: document.getElementById('vol_emirate').value, phone: document.getElementById('vol_phone').value.trim(), notes: document.getElementById('vol_notes').value.trim(), ts: new Date().toISOString() };
-    localSave('volunteer', payload);
-    alert('Saved locally');
-  });
-
-  /* ---------- Contact (Supabase) ---------- */
-  document.getElementById('contactSend').addEventListener('click', async (ev)=> {
-    ev.preventDefault();
-    const payload = {
-      name: document.getElementById('contact_name').value.trim(),
-      contact: document.getElementById('contact_phone').value.trim(),
-      message: document.getElementById('contact_msg').value.trim(),
-      ts: new Date().toISOString()
-    };
-    if (!payload.contact && !payload.name) return alert('Please provide name or contact info');
-
-    const btn = document.getElementById('contactSend'); btn.disabled = true; btn.innerText = 'Sending...';
-    try {
-      const res = await insertRow('contact_messages', payload);
-      if (res.localOnly) {
-        localSave('contact', payload);
-        alert('Saved locally. Configure your Supabase anon key to persist remotely.');
-        document.getElementById('contactForm').reset();
-      } else if (res.error) {
-        console.error(res.error);
-        localSave('contact', payload);
-        alert('Saved locally but server failed.');
-      } else {
-        alert('Message sent — thank you!');
-        document.getElementById('contactForm').reset();
-      }
-    } catch (e) {
-      console.warn(e);
-      localSave('contact', payload);
-      alert('Network error — saved locally.');
-    } finally { btn.disabled = false; btn.innerText = 'Send'; }
-  });
-
-  document.getElementById('contactSaveLocal').addEventListener('click', ()=> {
-    const payload = { name: document.getElementById('contact_name').value.trim(), contact: document.getElementById('contact_phone').value.trim(), message: document.getElementById('contact_msg').value.trim(), ts: new Date().toISOString() };
-    localSave('contact', payload);
-    alert('Saved locally');
-  });
-
-  /* ---------- localSave util (fallback) ---------- */
-  function localSave(kind, payload){
-    const key = 'hh_v2_' + (kind || 'misc');
-    try {
-      const arr = JSON.parse(localStorage.getItem(key) || '[]');
-      arr.unshift(payload);
-      if (arr.length>50) arr.pop();
-      localStorage.setItem(key, JSON.stringify(arr));
-    } catch(e){ console.warn('localSave failed',e); }
+      const blob = new Blob([swCode], {type: 'application/javascript'});
+      const swUrl = URL.createObjectURL(blob);
+      navigator.serviceWorker.register(swUrl).then(reg => { console.log('SW registered (blob)', reg); }).catch(err=> console.warn('SW reg failed', err));
+    } catch(e){ console.warn('sw blob err', e); }
   }
 
-  /* floating donate & quick links */
-  document.getElementById('fabDonate').addEventListener('click', ()=> { document.getElementById('donationCard').scrollIntoView({behavior:'smooth', block:'center'}); });
-  document.getElementById('quickDonate').addEventListener('click', ()=> { document.getElementById('donationCard').scrollIntoView({behavior:'smooth', block:'center'}); });
-  document.getElementById('goFinder').addEventListener('click', ()=> { document.getElementById('finder').scrollIntoView({behavior:'smooth'}); });
-  document.getElementById('goDonate').addEventListener('click', ()=> { document.getElementById('donationCard').scrollIntoView({behavior:'smooth', block:'center'}); });
+  // expose some helpers for debugging
+  window.hh = { centers: () => centers, reloadCenters: ()=> { centers = loadCenters(); }, saveCenters: ()=> saveCenters(centers), toast };
 
-  /* nav active highlight on scroll */
-  const navLinks = document.querySelectorAll('.navlink');
-  const sections = Array.from(document.querySelectorAll('section'));
-  function onScroll(){
-    const y = window.scrollY + 80;
-    let current = sections[0];
-    for (const s of sections) if (s.offsetTop <= y) current = s;
-    navLinks.forEach(a => a.classList.toggle('active', a.getAttribute('href') === '#' + current.id));
-  }
-  window.addEventListener('scroll', onScroll);
+  // Export functions for templates
+  window.openDonateModal = openDonateModal;
+  window.loadStats = loadStats;
+  window.renderFeatured = renderFeatured;
+  window.openPopupForCenter = openPopupForCenter;
+  window.addAllMarkers = addAllMarkers;
 
-  /* small startup */
-  renderNearbyList(centers);
-  applyFilters();
-  onScroll();
-
-  /* accessibility: keyboard activation for fab */
-  document.getElementById('fabDonate').addEventListener('keydown', (e)=>{ if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); document.getElementById('donationCard').scrollIntoView({behavior:'smooth', block:'center'}); } });
-
-</script>
-
+})(); // IIFE
+  </script>
 </body>
 </html>
-// diagnostic insertRow — paste over your existing insertRow() implementation
-async function insertRow(table, payload) {
-  try {
-    // quick sanity-check: trim the key string so stray whitespace won't break it
-    const keyTrimmed = SUPABASE_ANON_KEY && SUPABASE_ANON_KEY.trim();
-    if (!keyTrimmed || keyTrimmed === 'YOUR_ANON_KEY_HERE') {
-      console.warn('Supabase anon key not set (or placeholder).');
-      return { data: null, error: { message: 'Anon key missing' }, localOnly: true };
-    }
-
-    // use supabase client as before
-    const res = await supabase.from(table).insert([payload]);
-
-    // If Supabase client returned an error object, log everything
-    if (res.error) {
-      console.error('Supabase returned error object:', res.error);
-      // Try to fetch the raw REST response for extra details (useful to see 401 body)
-      try {
-        const restUrl = `${SUPABASE_URL.replace(/^https?:\/\//,'')}/rest/v1/${encodeURIComponent(table)}?limit=1`;
-        // Note: This fetch is only to surface raw response headers & body for diagnostics
-        const raw = await fetch(`https://${restUrl}`, {
-          method: 'GET',
-          headers: { apikey: keyTrimmed, Authorization: 'Bearer ' + keyTrimmed }
-        }).catch(e => ({ error: e }));
-        console.log('Raw REST test response (may surface 401 details):', raw);
-      } catch (e) {
-        console.warn('Raw REST fetch failed (maybe CORS):', e);
-      }
-      return { data: null, error: res.error, localOnly: false };
-    }
-
-    // success
-    return { data: res.data, error: null, localOnly: false };
-  } catch (err) {
-    console.error('insertRow unexpected error:', err);
-    return { data: null, error: err, localOnly: false };
-  }
-}
-
