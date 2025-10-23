@@ -126,6 +126,72 @@
   /* responsiveness */
   @media (max-width:1000px){ .hero{grid-template-columns:1fr 1fr} .map-wrap{height:360px} .details{display:none} }
   @media (max-width:700px){ .hero{grid-template-columns:1fr} .map-wrap{height:260px} .navlinks{display:none} .container{padding:12px} .topnav{padding:8px} }
+
+  /* ======== ADDED STYLES ======== */
+  .banner-wrap {
+    max-width: 1200px;
+    margin: 0 auto 18px;
+    padding: 10px 18px;
+  }
+  .banner-wrap img {
+    width: 100%;
+    border-radius: 16px;
+    box-shadow: 0 10px 40px rgba(0,0,0,0.3);
+    display: block;
+  }
+  html[data-theme="light"] .banner-wrap {
+    background: linear-gradient(180deg,#f7fafc 0%, #eef2f7 100%);
+  }
+  html[data-theme="dark"] .banner-wrap {
+    background: linear-gradient(180deg,#071127 0%, #04101a 100%);
+  }
+
+  /*
+    Make "Info"/Details button text use the page text color so it's
+    white in dark mode and black (or dark) in light mode. Applied to:
+      - nearby list Info buttons (action-button[data-action="details"])
+      - map popup details button (.btn-details)
+      - any other details button variants
+  */
+  .action-button[data-action="details"],
+  .nearby-item .action-button[data-action="details"],
+  .btn-details {
+    color: var(--text); /* white in dark, dark in light via --text variable */
+    background: var(--glass); /* subtle glass background for contrast */
+    border: 1px solid rgba(255,255,255,0.06); /* tuned for dark by default */
+    font-weight: 800;
+  }
+
+  /* Light theme adjustments: slightly stronger border / darker glass so text remains readable */
+  :root[data-theme="light"] .action-button[data-action="details"],
+  :root[data-theme="light"] .nearby-item .action-button[data-action="details"],
+  :root[data-theme="light"] .btn-details {
+    background: rgba(0,0,0,0.04);
+    border: 1px solid rgba(0,0,0,0.06);
+    color: var(--text); /* in light theme --text is dark */
+  }
+
+  /* Hover: use accent gradient and dark text for legibility on the bright accent */
+  .action-button[data-action="details"]:hover,
+  .nearby-item .action-button[data-action="details"]:hover,
+  .btn-details:hover {
+    background: linear-gradient(90deg,var(--accent),var(--accent-2));
+    color: #071127; /* dark text over the accent */
+    transform: translateY(-1px);
+  }
+
+  /* Popup buttons in Leaflet popup - ensure they inherit theme text color */
+  .leaflet-popup-content .btn-details,
+  .leaflet-popup-content .btn-popup,
+  .leaflet-popup-content .btn-route {
+    color: var(--text);
+  }
+
+  /* ensure popup contents wrap nicely */
+  .leaflet-popup-content { font-family: inherit; color:var(--text); background:transparent; box-shadow:none; }
+  .leaflet-popup-content-wrapper { background:var(--card-bg); border-radius:12px; box-shadow:var(--shadow); border:1px solid rgba(255,255,255,0.02); padding:10px; }
+  .leaflet-container { background: linear-gradient(180deg, rgba(0,0,0,0.02), transparent); }
+
   </style>
 </head>
 <body>
@@ -209,6 +275,11 @@
 
   <!-- templates -->
   <script type="text/template" id="tpl-home">
+    <!-- Banner is now part of the home template so it only appears on the home route -->
+    <div class="banner-wrap">
+      <img src="Donate to Fight Hunger Together.png" alt="Donate to Fight Hunger Together — HungerHero UAE Banner" />
+    </div>
+
     <section class="card hero" aria-labelledby="home-title">
       <div>
         <div style="display:flex;align-items:center;gap:12px;margin-bottom:6px">
@@ -426,6 +497,7 @@
     </section>
   </script>
 
+  <!-- Replaced tpl-contact with the version that includes the Contact Form link (kept information unchanged) -->
   <script type="text/template" id="tpl-contact">
     <section>
       <h2>Contact</h2>
@@ -455,6 +527,7 @@
             </form>
           </div>
 
+          <!-- Added new Contact Form button -->
           <div class="card" style="margin-top:12px">
             <h4 style="margin:0 0 6px">Support channels</h4>
             <div class="small">Phone: <a href="tel:+971500000000">+971 50 000 0000</a></div>
@@ -463,6 +536,8 @@
             <div style="margin-top:10px">
               <a class="action-button" href="https://twitter.com/" target="_blank" rel="noopener">Twitter</a>
               <a class="action-button" href="https://facebook.com/" target="_blank" rel="noopener">Facebook</a>
+              <!-- New contact form link -->
+              <a class="action-button" href="https://forms.gle/vo13BKkA9oa9uKfp8" target="_blank" rel="noopener">Contact Form</a>
             </div>
           </div>
         </div>
@@ -532,6 +607,7 @@
 /* HungerHero SPA - final single-file
    - Theme toggle fix implemented: toggles data-theme on <html>
    - All previously included features kept and polished
+   - Banner moved into home template so it only shows on the home route
 */
 
 (() => {
@@ -582,7 +658,7 @@
 
   // Toasts
   const toastWrap = document.getElementById('toasts');
-  function toast(message, {type='info', duration=4500, action} = {}){
+  function toast(message, {type='info', duration=4500, action} = {}) {
     const id = uid('t');
     const el = document.createElement('div');
     el.className = 'toast ' + (type==='success'?'success': type==='warn'?'warn':'');
@@ -1150,8 +1226,15 @@
 
     window.addEventListener('keydown', (e)=>{
       if (e.key === 'd' && !e.ctrlKey && !e.metaKey && !e.altKey) openDonateModal();
-      if (e.key === '/' && !['INPUT','TEXTAREA','SELECT'].includes(document.activeElement.tagName)){ e.preventDefault(); const fs = document.getElementById('finderSearch'); fs && fs.focus(); }
+      if (e.key === '/' && notInInput()){
+        e.preventDefault();
+        const fs = document.getElementById('finderSearch'); fs && fs.focus();
+      }
     });
+
+    function notInInput(){
+      return !['INPUT','TEXTAREA','SELECT'].includes(document.activeElement.tagName);
+    }
 
     $$('.navlink').forEach(a => a.addEventListener('click', ()=> setActiveNav(a.getAttribute('href').replace(/^#/,''))));
 
