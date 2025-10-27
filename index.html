@@ -118,7 +118,7 @@
   .toast.warn{border-left:4px solid #ffd66b}
   .toast .btn-inline{background:transparent;border:0;color:var(--accent);font-weight:800;cursor:pointer}
 
-  /* floating CTA - REMOVED in DOM: previously used as bottom donate; kept CSS here in case it's reused later */
+  /* floating CTA */
   .floating{position:fixed;right:18px;bottom:22px;background:linear-gradient(135deg,var(--accent),var(--accent-2));color:#071127;padding:12px 16px;border-radius:28px;font-weight:800;box-shadow:0 14px 40px rgba(255,122,89,0.12);z-index:1200;display:flex;gap:10px;align-items:center;cursor:pointer}
 
   /* admin badge */
@@ -147,59 +147,53 @@
     background: linear-gradient(180deg,#071127 0%, #04101a 100%);
   }
 
-  /* make Info/details button text follow theme text color so it's white in dark and black in light */
+  /*
+    Make "Info"/Details button text use the page text color so it's
+    white in dark mode and black (or dark) in light mode. Applied to:
+      - nearby list Info buttons (action-button[data-action="details"])
+      - map popup details button (.btn-details)
+      - any other details button variants
+  */
   .action-button[data-action="details"],
   .nearby-item .action-button[data-action="details"],
   .btn-details {
-    color: var(--text);
-    background: var(--glass);
-    border: 1px solid rgba(255,255,255,0.06);
+    color: var(--text); /* white in dark, dark in light via --text variable */
+    background: var(--glass); /* subtle glass background for contrast */
+    border: 1px solid rgba(255,255,255,0.06); /* tuned for dark by default */
     font-weight: 800;
   }
 
+  /* Light theme adjustments: slightly stronger border / darker glass so text remains readable */
   :root[data-theme="light"] .action-button[data-action="details"],
   :root[data-theme="light"] .nearby-item .action-button[data-action="details"],
   :root[data-theme="light"] .btn-details {
     background: rgba(0,0,0,0.04);
     border: 1px solid rgba(0,0,0,0.06);
-    color: var(--text);
+    color: var(--text); /* in light theme --text is dark */
   }
 
+  /* Hover: use accent gradient and dark text for legibility on the bright accent */
   .action-button[data-action="details"]:hover,
   .nearby-item .action-button[data-action="details"]:hover,
   .btn-details:hover {
     background: linear-gradient(90deg,var(--accent),var(--accent-2));
-    color: #071127;
+    color: #071127; /* dark text over the accent */
     transform: translateY(-1px);
   }
 
+  /* Popup buttons in Leaflet popup - ensure they inherit theme text color */
+  .leaflet-popup-content .btn-details,
+  .leaflet-popup-content .btn-popup,
+  .leaflet-popup-content .btn-route {
+    color: var(--text);
+  }
+
+  /* ensure popup contents wrap nicely */
   .leaflet-popup-content { font-family: inherit; color:var(--text); background:transparent; box-shadow:none; }
   .leaflet-popup-content-wrapper { background:var(--card-bg); border-radius:12px; box-shadow:var(--shadow); border:1px solid rgba(255,255,255,0.02); padding:10px; }
   .leaflet-container { background: linear-gradient(180deg, rgba(0,0,0,0.02), transparent); }
 
-  /* Force visible Info/Details buttons everywhere (strong override to beat inline/third-party rules) */
-  .action-button[data-action="details"],
-  .nearby-item .action-button[data-action="details"],
-  .btn-details {
-    background: linear-gradient(90deg, var(--accent), var(--accent-2)) !important;
-    color: #071127 !important;
-    border: none !important;
-    font-weight: 800;
-    opacity: 1 !important;
-    box-shadow: 0 4px 20px rgba(255,122,89,0.25) !important;
-  }
-
-  .action-button[data-action="details"]:hover,
-  .nearby-item .action-button[data-action="details"]:hover,
-  .btn-details:hover {
-    transform: translateY(-1px);
-    box-shadow: 0 0 15px rgba(255,122,89,0.4) !important;
-  }
-
   </style>
-
-  <!-- jsPDF CDN (added as requested) -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 </head>
 <body>
   <header class="topnav" role="navigation" aria-label="Main navigation">
@@ -226,7 +220,8 @@
 
   <main id="app" class="container" role="main" tabindex="-1"></main>
 
-  <!-- NOTE: The previous bottom floating donate button was removed per request. -->
+  <!-- Floating donate -->
+  <div class="floating" id="fabDonate" role="button" tabindex="0" aria-label="Donate now">Donate</div>
 
   <!-- Modal: donate reused across site -->
   <div id="donateModal" class="modal-backdrop" role="dialog" aria-modal="true" aria-hidden="true">
@@ -297,7 +292,6 @@
         <p class="lead">Find verified food centers across the UAE, request a pickup, or submit a donation quickly. Mobile-first, low-friction flows.</p>
 
         <div style="margin-top:12px;display:flex;gap:12px;flex-wrap:wrap">
-          <!-- ONE-TAP DONATE: changed to open external form link directly -->
           <button class="cta-big btn" id="homeDonateBtn" aria-label="Donate now">One-tap Donate</button>
           <a class="action-button" href="#/finder">Find nearest centers →</a>
           <a class="action-button" href="#/ngo">Register NGO →</a>
@@ -614,19 +608,15 @@
 /* HungerHero SPA - final single-file
    - Theme toggle fix implemented: toggles data-theme on <html>
    - All previously included features kept and polished
-   - Changes made:
-     * The "One-tap Donate" button on the home page now opens the provided Google Form link directly.
-     * The bottom floating donate button (fab) has been removed from the DOM (and its click hookup removed).
-     * showDetails(c) was replaced: instead of building and showing an HTML panel it now generates a PDF via jsPDF and downloads it.
+   - Banner moved into home template so it only shows on the home route
 */
 
 (() => {
   const LINKS = {
-    DONATE: 'https://forms.gle/84aq5mjkiikK8Szh6', // existing donate form (kept for other flows)
+    DONATE: 'https://forms.gle/84aq5mjkiikK8Szh6',
     NGO: 'https://forms.gle/49jtfjFodvr4epjP9',
     VOLUNTEER: 'https://forms.gle/b6iVVxQPLxv8JU7HA',
-    CONTACT: 'https://forms.gle/UJEP46PQQUFTvkRv9',
-    ONE_TAP_DONATE: 'https://forms.gle/bZvH3yJsLUqAg8ZF7' // <-- new one-tap donation URL requested
+    CONTACT: 'https://forms.gle/UJEP46PQQUFTvkRv9'
   };
 
   // Default centers persisted in localStorage key 'hh_centers_v2'
@@ -850,18 +840,7 @@
     const app = $('#app');
     app.innerHTML = '';
     switch(route){
-      case '/':
-        app.innerHTML = tpl('tpl-home');
-        setTimeout(()=> {
-          // ONE-TAP DONATE: open the requested external form link directly
-          $('#homeDonateBtn')?.addEventListener('click', ()=> {
-            window.open(LINKS.ONE_TAP_DONATE, '_blank', 'noopener');
-          });
-          renderFeatured();
-          loadStats();
-          readyToast();
-        }, 60);
-        break;
+      case '/': app.innerHTML = tpl('tpl-home'); setTimeout(()=> { $('#homeDonateBtn')?.addEventListener('click', ()=> openDonateModal()); renderFeatured(); loadStats(); readyToast(); }, 60); break;
       case '/finder': app.innerHTML = tpl('tpl-finder'); setTimeout(()=> initFinderView(), 80); break;
       case '/ngo': app.innerHTML = tpl('tpl-ngo'); setTimeout(()=> { $('#downloadChecklist')?.addEventListener('click', downloadChecklist); $('#ngoFormBtn')?.addEventListener('click', ()=> window.open(LINKS.NGO,'_blank')); $('#contactNgoSupport')?.addEventListener('click', ()=> window.location.href = 'mailto:partners@hungerhero.example'); loadStats(); }, 30); break;
       case '/volunteers': app.innerHTML = tpl('tpl-volunteers'); setTimeout(()=> { $('#volunteerForm')?.addEventListener('submit', handleVolunteerSubmit); $('#volGoogle')?.addEventListener('click', ()=> window.open(LINKS.VOLUNTEER,'_blank')); loadStats(); }, 30); break;
@@ -1064,45 +1043,39 @@
     });
   }
 
-  // Modified: showDetails now generates a PDF using jsPDF instead of creating an HTML details panel
   function showDetails(c){
-    try {
-      if (!window.jspdf || !window.jspdf.jsPDF) {
-        // older UMD exposes window.jspdf.jsPDF; try to handle both shapes
-      }
-      const { jsPDF } = window.jspdf || (window.jspdf && window.jspdf.default) || {};
-      if (!jsPDF) {
-        // Best-effort fallback: try window.jspdf.jsPDF (some builds)
-        if (window.jspdf && window.jspdf.jsPDF) {
-          const doc = new window.jspdf.jsPDF();
-          doc.text(`Center Name: ${c.name}`, 10, 20);
-          doc.text(`Emirate: ${c.emirate}`, 10, 30);
-          doc.text(`Area: ${c.area}`, 10, 40);
-          doc.text(`Type: ${c.type}`, 10, 50);
-          doc.text(`Hours: ${c.hours || 'N/A'}`, 10, 60);
-          doc.text(`Capacity: ${c.capacity || 'Unknown'}`, 10, 70);
-          doc.text(`Phone: ${c.phone || 'N/A'}`, 10, 80);
-          doc.save(`${(c.name||'center').replace(/\s+/g, '_')}.pdf`);
-          return;
-        }
-        toast('PDF generation library not available', {type:'warn'});
-        return;
-      }
-      const doc = new jsPDF();
-      doc.setFontSize(12);
-      doc.text(`Center Name: ${c.name}`, 10, 20);
-      doc.text(`Emirate: ${c.emirate}`, 10, 30);
-      doc.text(`Area: ${c.area}`, 10, 40);
-      doc.text(`Type: ${c.type}`, 10, 50);
-      doc.text(`Hours: ${c.hours || 'N/A'}`, 10, 60);
-      doc.text(`Capacity: ${c.capacity || 'Unknown'}`, 10, 70);
-      doc.text(`Phone: ${c.phone || 'N/A'}`, 10, 80);
-      // Optionally add more fields or formatting here
-      doc.save(`${(c.name||'center').replace(/\s+/g, '_')}.pdf`);
-    } catch (err) {
-      console.error('Error generating PDF', err);
-      toast('Failed to generate PDF', {type:'warn'});
+    let detailsEl = $('#details');
+    if (!detailsEl){
+      detailsEl = document.createElement('div'); detailsEl.id='details'; detailsEl.className='details';
+      document.body.appendChild(detailsEl);
     }
+    detailsEl.innerHTML = `
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <div><h4>${escapeHtml(c.name)}</h4><div class="small">${escapeHtml(c.area)} • ${escapeHtml(c.emirate)}</div></div>
+        <div style="display:flex;flex-direction:column;gap:8px">
+          <button id="closeDetails" class="btn-ghost">Close</button>
+          <div class="admin-badge">${c.verified ? 'Verified' : 'Unverified'}</div>
+        </div>
+      </div>
+      <div style="margin-top:10px">
+        <div class="small"><strong>Type:</strong> ${escapeHtml(c.type)}</div>
+        <div class="small"><strong>Hours:</strong> ${escapeHtml(c.hours || 'N/A')}</div>
+        <div class="small"><strong>Capacity:</strong> ${escapeHtml(c.capacity || 'Unknown')}</div>
+        <div class="small" style="margin-top:8px"><strong>Phone:</strong> <a href="tel:${escapeHtml(c.phone)}">${escapeHtml(c.phone)}</a></div>
+        <div style="margin-top:10px;display:flex;gap:8px">
+          <button class="action-button" id="detailRoute">Get directions</button>
+          <button class="action-button" id="detailPickup">Request pickup</button>
+          <a class="action-button" href="${c.website}" target="_blank" rel="noopener">Website</a>
+        </div>
+      </div>
+    `;
+    detailsEl.classList.add('open');
+    $('#closeDetails').onclick = ()=> detailsEl.classList.remove('open');
+    $('#detailPickup').onclick = ()=> openDonateModal(c.name);
+    $('#detailRoute').onclick = ()=> {
+      if (window._lastUserPos) drawRoute(window._lastUserPos, {lat:c.lat, lng:c.lng});
+      else window.open(`https://www.google.com/maps/dir/?api=1&destination=${c.lat},${c.lng}`, '_blank', 'noopener');
+    };
   }
 
   function openPopupForCenter(id){ const m = centerMarkers[id]; if (m) m.openPopup(); }
@@ -1249,8 +1222,7 @@
   window.addEventListener('hashchange', render);
   window.addEventListener('DOMContentLoaded', ()=>{
     $('#openDonate')?.addEventListener('click', ()=> openDonateModal());
-    // removed bottom floating donate handler because the floating donate element was removed per request
-
+    $('#fabDonate')?.addEventListener('click', ()=> openDonateModal());
     $('#openGoogleFormBtn')?.addEventListener('click', ()=> window.open(LINKS.DONATE,'_blank'));
 
     window.addEventListener('keydown', (e)=>{
